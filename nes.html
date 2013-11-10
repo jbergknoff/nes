@@ -4,7 +4,8 @@
 	<script src="//rawgithub.com/caolan/async/master/lib/async.js"></script>
 	<script src="/nes/constants.js"></script>
 	<script src="/nes/system.js"></script>
-	<script src="/nes/rom.js"></script>
+	<script src="/nes/cartridge.js"></script>
+	<script src="/nes/mapper.js"></script>
 </head>
 
 <body>
@@ -27,7 +28,7 @@ document.getElementById("romselect").addEventListener
 			{
 				if (FR.error) return console.log("error reading the ROM", FR.error);
 				var System = new NES.System();
-				System.LoadROM(new Uint8Array(FR.result));
+				System.LoadCartridge(new Uint8Array(FR.result));
 			}
 		);
 

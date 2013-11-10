@@ -26,7 +26,7 @@ var NES = NES || {};
 0Fh  Nonzero if [07h..0Fh]=GARBAGE, if so, assume [07h..0Fh]=ALL ZERO (*)
 */
 
-NES.ROM = function(ROMData)
+NES.Cartridge = function(ROMData)
 {
 	var Valid = false;
 
@@ -34,7 +34,7 @@ NES.ROM = function(ROMData)
 	var CHRPageCount = 0;
 	var Mirroring = NES.MirroringType.Horizontal;
 	var SRAMEnabled = false;
-	var MapperNumber = 0;
+	var Mapper;
 
 	Validate();
 
@@ -46,7 +46,7 @@ NES.ROM = function(ROMData)
 		if (btoa(String.fromCharCode.apply(null, ROMData.subarray(0, 4))) !== "TkVTGg==")
 			return;
 
-		PRGPageCount = ROMData[4];
+		PRGPageCount = 2 * ROMData[4];
 		CHRPageCount = 8 * ROMData[5];
 		console.log("PRGPageCount = " + PRGPageCount + ", CHRPageCount = " + CHRPageCount);
 
@@ -59,10 +59,24 @@ NES.ROM = function(ROMData)
 
 		Mirroring = (ROMData[6] & 0x01) == 0 ? NES.MirroringType.Horizontal : NES.MirroringType.Vertical;
 		SRAMEnabled = (ROMData[6] & 0x02) != 0;
-		MapperNumber = ((ROMData[6] >> 4) & 0x0F) | (ROMData[7] & 0xF0);
 
-		PRG = ROMData.subarray(0x10, 0x10 + PRGPageCount * NES.PRGPageSize);
-		CHR = ROMData.subarray(0x10 + PRGPageCount * NES.PRGPageSize, ExpectedLength);
+		var PRGPages = [];
+		var CHRPages = [];
+
+		for (var i = 0; i < PRGPageCount; i++)
+		{
+			var Start = 0x10 + i * NES.PRGPageSize;
+			PRGPages.push(ROMData.subarray(Start, Start + NES.PRGPageSize));
+		}
+
+		for (var i = 0; i < CHRPageCount; i++)
+		{
+			var Start = 0x10 + PRGPageCount * NES.PRGPageSize + i * NES.CHRPageSize;
+			CHRPages.push(ROMData.subarray(Start, Start + NES.CHRPageSize));
+		}
+
+		var MapperNumber = ((ROMData[6] >> 4) & 0x0F) | (ROMData[7] & 0xF0);
+		Mapper = new NES.Mapper(MapperNumber, PRGPages, CHRPages);
 
 		Valid = true;
 	}
@@ -73,5 +87,5 @@ NES.ROM = function(ROMData)
 	this.CHRPageCount = function() { return CHRPageCount; };
 	this.Mirroring = function() { return Mirroring; };
 	this.SRAMEnabled = function() { return SRAMEnabled; };
-	this.MapperNumber = function() { return MapperNumber; };
+	this.Mapper = function() { return Mapper; };
 }
