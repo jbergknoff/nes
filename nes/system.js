@@ -9,6 +9,7 @@ var NES = NES || {};
 NES.System = function(Callbacks)
 {
 	var RAM = new Uint8Array(0x800);
+	var CPU;
 	var Cartridge;
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
@@ -18,8 +19,15 @@ NES.System = function(Callbacks)
 		if (!Cartridge.IsValid()) return console.log("rom not valid");
 
 		// Read the 16 bit "reset vector" at 0xFFFC in order to know where to start executing game code.
-		var StartingProgramCounter = (ReadByte(0xFFFD) << 8) | ReadByte(0xFFFC);
-		console.log("starting program at " + StartingProgramCounter.toString(16));
+		var StartingPC = (ReadByte(0xFFFD) << 8) | ReadByte(0xFFFC);
+		console.log("starting program at " + StartingPC.toString(16));
+
+		CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": function() {} });
+		CPU.PC(StartingPC);
+
+		CPU.Step();
+		CPU.Step();
+		CPU.Step();
 	}
 
 	function ReadByte(AbsoluteAddress)
