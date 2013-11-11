@@ -69,7 +69,7 @@ NES.PPU = function(Callbacks)
 	CachedAttributeTable = new Uint8Array(2 * 32 * 32); // One byte per tile, 32 * 32 tiles per nametable, two nametables.
 
 	// Data used for interacting with the frontend.
-	//Screen = new Microsoft.Xna.Framework.Color[NES.VisiblePixelsPerScanline * NES.VisibleScanlines]; // TODO
+	var Screen = new Uint32Array(NES.VisiblePixelsPerScanline * NES.VisibleScanlines);
 
 	// This is just before scanline -1.
 	function EndVBlank()
@@ -120,7 +120,8 @@ NES.PPU = function(Callbacks)
 			if (Pixel == 0) InitializeScanline();
 
 			var PixelColor = ProcessPixel();
-			//Screen[NES.VisiblePixelsPerScanline * Scanline + Pixel] = XNA.NESColors.RGBColors[PixelColor]; // TODO
+			if (PixelColor != 0) console.log("non-zero pixel!");
+			Screen[NES.VisiblePixelsPerScanline * Scanline + Pixel] = PixelColor;
 		}
 
 		// Bookkeeping for scanlines, etc., even when the pixel isn't being drawn.

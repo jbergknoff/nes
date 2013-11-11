@@ -33,7 +33,8 @@ NES.System = function(Callbacks)
 				"ReadCHR": Cartridge.Mapper().ReadCHR(),
 				"WriteCHR": function() { throw "can't write to CHR"; },
 				"RaiseInterrupt": RaiseInterrupt,
-				"DrawScreen": function() { throw "can't draw the screen yet"; }
+				//"DrawScreen": function(a) { console.log(a); throw "can't draw the screen yet"; }
+				"DrawScreen": function() { console.log("drawing the screen"); }
 			}
 		);
 
@@ -45,11 +46,11 @@ NES.System = function(Callbacks)
 				PPU.Tick(); // TODO: this is very wrong. placeholder.
 				if (CurrentInterrupt != NES.InterruptType.None)
 				{
-					console.log("handling interrupt");
+					console.log("handling interrupt " + CurrentInterrupt);
 					HandleInterrupt();
 				}
 
-				CB();
+				setTimeout(function() { CB(); }, 0);
 			}
 		);
 	}
@@ -126,6 +127,6 @@ NES.System = function(Callbacks)
 				break;
 		}
 
-		CurrentInterrupt = InterruptType.None;
+		CurrentInterrupt = NES.InterruptType.None;
 	}
 };
