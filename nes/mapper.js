@@ -37,13 +37,6 @@ NES.Mapper = function(Number, ExternalPRG, ExternalCHR)
 
 
 
-	this.ReadPRG = function(AbsoluteAddress)
-	{
-		return PRG[(AbsoluteAddress >> 13) & 3][AbsoluteAddress & 0x1FFF];
-	}
-
-	this.ReadCHR = function(AbsoluteAddress)
-	{
-		return CHR[(AbsoluteAddress >> 10) & 7][AbsoluteAddress & 0x03FF];
-	}
+	this.ReadPRG = function(Address) { return PRG[(Address >> 13) & 3][Address & 0x1FFF]; };
+	this.ReadCHR = function(Address) { return CHR[(Address >> 10) & 7][Address & 0x03FF]; };
 }

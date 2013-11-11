@@ -1,9 +1,9 @@
 var NES = NES || {};
 
 // Callbacks, object with:
-//		ReadByte: function(AbsoluteAddress).
-//		WriteByte: function(AbsoluteAddress, Value).
-//		RaiseInterrupt: ?
+//		ReadByte: function(Address).
+//		WriteByte: function(Address, Value).
+//		RaiseInterrupt: function(InterruptType).
 NES.CPU = function(Callbacks)
 {
 	var PC; // Program counter.
@@ -50,14 +50,14 @@ NES.CPU = function(Callbacks)
 
 	function PushStack(Value)
 	{
-		WriteByte(Constants.StackAddress + S, Value);
+		WriteByte(NES.StackAddress + S, Value);
 		--S;
 		S &= 0xFF;
 	}
 
 	function PopStack()
 	{
-		var M = ReadByte(Constants.StackAddress + ((S + 1) & 0xFF));
+		var M = ReadByte(NES.StackAddress + ((S + 1) & 0xFF));
 		++S;
 		S &= 0xFF;
 		return M;
@@ -419,7 +419,7 @@ NES.CPU = function(Callbacks)
 	function BRK()
 	{
 		Break = true;
-		RaiseInterrupt(InterruptType.IRQBRK);
+		RaiseInterrupt(NES.InterruptType.IRQBRK);
 		//CycleCounter = 7;
 		PC += 2;
 	}
@@ -517,8 +517,8 @@ NES.CPU = function(Callbacks)
 	{
 		// Push the return address onto the stack, high byte first. JSR is three bytes long.
 		// Return address is (PC + 3) - 1, and the addressing code already pushed us forward three bytes.
-		var ReturnPovar = (PC - 1) & 0xFFFF;
-		PushStack(ReturnPovar >> 8);
+		var ReturnPoint = (PC - 1) & 0xFFFF;
+		PushStack(ReturnPoint >> 8);
 		PushStack(ReturnPoint);
 		PC = TempAddress;
 	}

@@ -9,8 +9,11 @@ var NES = NES || {};
 NES.System = function(Callbacks)
 {
 	var RAM = new Uint8Array(0x800);
-	var CPU;
+	var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });;
+	var PPU;
 	var Cartridge;
+
+	var CurrentInterrupt = NES.InterruptType.None;
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 	this.LoadCartridge = function(ROMData)
@@ -22,53 +25,107 @@ NES.System = function(Callbacks)
 		var StartingPC = (ReadByte(0xFFFD) << 8) | ReadByte(0xFFFC);
 		console.log("starting program at " + StartingPC.toString(16));
 
-		CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": function() {} });
 		CPU.PC(StartingPC);
+		// TODO: gross that this is here and not up there, but Cartridge.Mapper() isn't defined until now.
+		PPU = new NES.PPU
+		(
+			{
+				"ReadCHR": Cartridge.Mapper().ReadCHR(),
+				"WriteCHR": function() { throw "can't write to CHR"; },
+				"RaiseInterrupt": RaiseInterrupt,
+				"DrawScreen": function() { throw "can't draw the screen yet"; }
+			}
+		);
 
-		CPU.Step();
-		CPU.Step();
-		CPU.Step();
+		async.forever
+		(
+			function(CB)
+			{
+				CPU.Step();
+				PPU.Tick(); // TODO: this is very wrong. placeholder.
+				if (CurrentInterrupt != NES.InterruptType.None)
+				{
+					console.log("handling interrupt");
+					HandleInterrupt();
+				}
+
+				CB();
+			}
+		);
 	}
 
-	function ReadByte(AbsoluteAddress)
+	function ReadByte(Address)
 	{
-		AbsoluteAddress &= 0xFFFF;
+		Address &= 0xFFFF;
 
-		if (AbsoluteAddress < 0x2000)
-			return RAM[AbsoluteAddress & 0x7FF];
-		else if (AbsoluteAddress < 0x4000)
-			throw "PPU register read";
-		else if (AbsoluteAddress < 0x6000)
+		if (Address < 0x2000)
+			return RAM[Address & 0x7FF];
+		else if (Address < 0x4000)
+			return PPU.ReadRegister(Address);
+		else if (Address < 0x6000)
 			throw "APU/input register read";
-		else if (AbsoluteAddress < 0x8000)
+		else if (Address < 0x8000)
 			throw "SRAM read";
 		else
-			return Cartridge.Mapper().ReadPRG(AbsoluteAddress);
+			return Cartridge.Mapper().ReadPRG(Address);
 	}
 
-	function WriteByte(AbsoluteAddress, Value)
+	function WriteByte(Address, Value)
 	{
-		AbsoluteAddress &= 0xFFFF;
+		Address &= 0xFFFF;
 
-		if (AbsoluteAddress < 0x2000)
-			RAM[AbsoluteAddress & 0x7FF] = Value;
-		else if (AbsoluteAddress < 0x4000 || AbsoluteAddress == 0x4014) // 0x4014 is DMA.
+		if (Address < 0x2000)
+			RAM[Address & 0x7FF] = Value;
+		else if (Address < 0x4000 || Address == 0x4014) // 0x4014 is DMA.
 		{
-			if (AbsoluteAddress == 0x4014)
-				throw "DMA";
+			if (Address == 0x4014)
+			{
+				var Start = (Value & 7) * 0x100;
+				PPU.DMA(RAM.subarray(Start, Start + 0x100));
+			}
 			else
-				throw "PPU register write";
+				PPU.WriteRegister(Address, Value);
 		}
-		else if (AbsoluteAddress < 0x4018)
+		else if (Address < 0x4018)
 		{
-			if (AbsoluteAddress == 0x4016) return;
+			if (Address == 0x4016) return;
 			throw "APU register write";
 		}
-		else if (AbsoluteAddress >= 0x6000 && AbsoluteAddress < 0x8000)
+		else if (Address >= 0x6000 && Address < 0x8000)
 			throw "SRAM write";
-		else if (AbsoluteAddress >= 0x8000)
+		else if (Address >= 0x8000)
 			throw "mapper register write";
 		else
-			throw "Don't know how to write to 0x" + AbsoluteAddress.toString(16);
+			throw "Don't know how to write to 0x" + Address.toString(16);
+	}
+
+	function RaiseInterrupt(InterruptType)
+	{
+		if (InterruptType == NES.InterruptType.CancelNMI && CurrentInterrupt == NES.InterruptType.NMI)
+		{
+			CurrentInterrupt = NES.InterruptType.None;
+			return;
+		}
+
+		// Priorities: Reset > NMI > IRQ/BRK.
+		if (InterruptType > CurrentInterrupt)
+			CurrentInterrupt = InterruptType;
+	}
+
+	function HandleInterrupt()
+	{
+		switch (CurrentInterrupt)
+		{
+			case NES.InterruptType.NMI:
+				CPU.PrepareInterrupt((ReadByte(0xFFFB) << 8) | ReadByte(0xFFFA));
+				//AdditionalCycles += 7 * Constants.CyclesPerCPUCycle[Region];
+				break;
+
+			case NES.InterruptType.IRQBRK:
+				CPU.PrepareInterrupt((ReadByte(0xFFFF) << 8) | ReadByte(0xFFFE));
+				break;
+		}
+
+		CurrentInterrupt = InterruptType.None;
 	}
 };
