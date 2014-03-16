@@ -111,7 +111,7 @@ NES.PPU = function(Callbacks)
 		{
 			InVBlank = true;
 			if ((ControlRegister1 & 0x80) != 0) RaiseInterrupt(NES.InterruptType.NMI);
-			DrawScreen(Screen);
+			DrawScreen(Screen, FrameCounter);
 		}
 
 		// If this scanline/pixel are to be drawn at this time, draw it.

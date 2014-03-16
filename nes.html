@@ -2,6 +2,7 @@
 <head>
 	<title>nes</title>
 	<link rel="stylesheet" href="http://www.hmphry.com/barebones/css/barebones.css">
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/async/0.2.7/async.min.js"></script>
 	<script src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.0.0/knockout-min.js"></script>
 	<script src="./nes/constants.js"></script>
 	<script src="./nes/system.js"></script>
@@ -22,9 +23,11 @@
 
 	<div class="column twelve">
 		<button data-bind="click: Step">step</button>
+		<button data-bind="click: Pause">pause</button>
 		<button data-bind="click: Run">run</button>
 		<span>breakpoint:</span>
 		<input type="text" data-bind="value: Breakpoint">
+
 	</div>
 
 	<div class="column three">
@@ -78,6 +81,7 @@ function DebuggerModel()
 	Self.CPUDetails = ko.observable();
 	Self.MemoryOffset = ko.observable();
 	Self.Breakpoint = ko.observable();
+	Self.Mode = null; // "STEP" vs. "RUN"
 
 	Self.ChooseROM = function(Data, E)
 	{
@@ -93,6 +97,7 @@ function DebuggerModel()
 				System().LoadCartridge(new Uint8Array(FR.result));
 				Self.CPUDetails(System().CPUDetails());
 				Self.MemoryOffset("0000");
+				Self.Mode = "STEP";
 			}
 		);
 
@@ -118,13 +123,36 @@ function DebuggerModel()
 	Self.Run = function()
 	{
 		var Breakpoint = parseInt(Self.Breakpoint(), 16);
-		while (true)
-		{
-			var NewPC = System().Step();
-			if (NewPC == Breakpoint) break;
-		}
+		Self.Mode = "RUN";
 
-		Self.CPUDetails(System().CPUDetails());
+		async.whilst
+		(
+			function() { return Self.Mode == "RUN"; },
+			function(CB)
+			{
+				for (var i = 0; i < 5000; i++)
+				{
+					var NewPC = System().Step();
+					if (NewPC == Breakpoint)
+					{
+						Self.Mode = "STEP";
+						break;
+					}
+				}
+
+				setTimeout(CB, 0);
+			},
+			function()
+			{
+				Self.Mode = "STEP";
+				Self.CPUDetails(System().CPUDetails());
+			}
+		);
+	};
+
+	Self.Pause = function()
+	{
+		Self.Mode = "STEP";
 	}
 
 	Self.Memory = ko.computed

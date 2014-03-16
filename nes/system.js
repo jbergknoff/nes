@@ -35,7 +35,10 @@ NES.System = function(Callbacks)
 				"WriteCHR": function() { throw "can't write to CHR"; },
 				"RaiseInterrupt": RaiseInterrupt,
 				//"DrawScreen": function(a) { console.log(a); throw "can't draw the screen yet"; }
-				"DrawScreen": function() { console.log("drawing the screen"); }
+				"DrawScreen": function(Screen, FrameCounter)
+				{
+					console.log("drawing frame %d", FrameCounter);
+				}
 			}
 		);
 
