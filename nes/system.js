@@ -31,7 +31,7 @@ NES.System = function(Callbacks)
 		PPU = new NES.PPU
 		(
 			{
-				"ReadCHR": Cartridge.Mapper().ReadCHR(),
+				"ReadCHR": Cartridge.Mapper().ReadCHR,
 				"WriteCHR": function() { throw "can't write to CHR"; },
 				"RaiseInterrupt": RaiseInterrupt,
 				//"DrawScreen": function(a) { console.log(a); throw "can't draw the screen yet"; }
@@ -65,6 +65,10 @@ NES.System = function(Callbacks)
 	Self.Step = function()
 	{
 		CPU.Step();
+		// TODO: replace with catch-up with cycle counting.
+		PPU.Tick();
+		PPU.Tick();
+		PPU.Tick();
 		return CPU.PC();
 	};
 

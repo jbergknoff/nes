@@ -107,7 +107,7 @@ NES.PPU = function(Callbacks)
 	{
 		// Scanlines 0 - 239 are the picture, 240 is junk and 241 indicates the beginning of VBlank.
 		// This NMI may actually be canceled if $2002 is written to during the second pixel of SL 241.
-		if (Scanline == NES.ScanlineVBlankBegin && Pixel == 0 && !NMIInhibit)
+		if (Scanline == NES.ScanlineVBlankBegin && Pixel == 0 && !NMIInhibit && FrameCounter > 0)
 		{
 			InVBlank = true;
 			if ((ControlRegister1 & 0x80) != 0) RaiseInterrupt(NES.InterruptType.NMI);
@@ -493,7 +493,7 @@ NES.PPU = function(Callbacks)
 						}
 
 						PaletteIndex = LowColor | ((Attributes << 2) & 0x0C);
-						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (byte)(PaletteIndex | (Background ? 0x80 : 0));
+						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF;
 					}
 				}
 			}
