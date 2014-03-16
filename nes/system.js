@@ -27,9 +27,8 @@ NES.System = function(Callbacks)
 		console.log("starting program at " + StartingPC.toString(16));
 
 		CPU.PC(StartingPC);
-		console.log(JSON.stringify(CPU.Disassemble()));
 		// TODO: gross that this is here and not up there, but Cartridge.Mapper() isn't defined until now.
-		/*PPU = new NES.PPU
+		PPU = new NES.PPU
 		(
 			{
 				"ReadCHR": Cartridge.Mapper().ReadCHR(),
@@ -40,6 +39,7 @@ NES.System = function(Callbacks)
 			}
 		);
 
+		/*
 		async.forever
 		(
 			function(CB)
@@ -58,6 +58,10 @@ NES.System = function(Callbacks)
 			}
 		);*/
 	}
+
+	Self.Disassemble = function() { return CPU.Disassemble(); };
+	Self.CPUDetails = function() { return CPU.Details(); };
+	Self.Step = function() { CPU.Step(); };
 
 	function ReadByte(Address)
 	{

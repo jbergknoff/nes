@@ -31,6 +31,17 @@ NES.CPU = function(Callbacks)
 	var ReadByte = Callbacks.ReadByte;
 	var WriteByte = Callbacks.WriteByte;
 
+	Self.Details = function()
+	{
+		var Details = {};
+		Details.PC = PC;
+		Details.A = A;
+		Details.X = X;
+		Details.Y = Y;
+		Details.S = StatusRegister();
+		return Details;
+	};
+
 	// Pretty-print the 10 instructions starting from PC.
 	Self.Disassemble = function()
 	{
@@ -115,7 +126,7 @@ NES.CPU = function(Callbacks)
 		}
 
 		return Output;
-	}
+	};
 
 	Self.Step = function()
 	{

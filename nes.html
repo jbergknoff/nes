@@ -1,7 +1,7 @@
 <html>
 <head>
 	<title>nes</title>
-	<script src="http://rawgithub.com/caolan/async/master/lib/async.js"></script>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.0.0/knockout-min.js"></script>
 	<script src="./nes/constants.js"></script>
 	<script src="./nes/system.js"></script>
 	<script src="./nes/cpu.js"></script>
@@ -12,14 +12,37 @@
 
 <body>
 
-<input type="file" id="romselect">
-<canvas id="c" width="256" height="256"></canvas>
+<input type="file" data-bind="event: { change: ChooseROM }">
+<!--<canvas id="c" width="256" height="256"></canvas>-->
+<button data-bind="click: Step">step</button>
+
+<ul data-bind="foreach: Disassembly">
+	<!-- ko if: typeof PC !== "undefined" -->
+	<li>
+		<span data-bind="text: '$' + ('0000' + PC.toString(16)).substr(-4, 4)" style="color: lightgray"></span>
+		<span data-bind="text: Text"></span>
+	</li>
+	<!-- /ko -->
+</ul>
+
+<!-- ko if: typeof CPUDetails() !== "undefined" -->
+<table>
+<tr><td>PC</td><td data-bind="text: '$' + ('0000' + CPUDetails().PC.toString(16)).substr(-4, 4)"></td></tr>
+<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
+<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
+<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
+<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
+</table>
+<!-- /ko -->
 
 <script type="text/javascript">
-document.getElementById("romselect").addEventListener
-(
-	"change",
-	function(E)
+function DebuggerModel()
+{
+	var Self = this;
+	var System = ko.observable();
+	Self.CPUDetails = ko.observable();
+
+	Self.ChooseROM = function(Data, E)
 	{
 		var FR = new FileReader();
 
@@ -29,14 +52,33 @@ document.getElementById("romselect").addEventListener
 			function()
 			{
 				if (FR.error) return console.log("error reading the ROM", FR.error);
-				var System = new NES.System();
-				System.LoadCartridge(new Uint8Array(FR.result));
+				System(new NES.System());
+				System().LoadCartridge(new Uint8Array(FR.result));
+				Self.CPUDetails(System().CPUDetails());
 			}
 		);
 
 		FR.readAsArrayBuffer(E.target.files[0]);
+	};
+
+	Self.Disassembly = ko.computed
+	(
+		function()
+		{
+			Self.CPUDetails();
+			if (!System()) return;
+			return System().Disassemble();
+		}
+	);
+
+	Self.Step = function()
+	{
+		System().Step();
+		Self.CPUDetails(System().CPUDetails());
 	}
-);
+}
+
+ko.applyBindings(new DebuggerModel());
 </script>
 </body>
 </html>
