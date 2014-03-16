@@ -90,6 +90,9 @@ NES.CPU = function(Callbacks)
 			switch (Opcode.AddressingMode.name)
 			{
 				case "Immediate":
+					Instruction.Text += " #$" + Argument;
+					break;
+
 				case "Absolute":
 				case "Relative":
 				case "ZeroPage":

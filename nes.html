@@ -65,7 +65,7 @@
 			<tr>
 				<td data-bind="text: '$' + ('0000' + (parseInt($root.MemoryOffset(), 16) + 0x10 * $index()).toString(16)).substr(-4, 4)" style="color: lightgray"></td>
 				<td data-bind="foreach: $data">
-					<span data-bind="text: '$' + ('00' + $data.toString(16)).substr(-2, 2)"></span>
+					<span data-bind="text: ('00' + $data.toString(16)).substr(-2, 2)"></span>
 				</td>
 		</table>
 		<!-- /ko -->
