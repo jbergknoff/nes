@@ -6,6 +6,7 @@ var NES = NES || {};
 //		RaiseInterrupt: function(InterruptType).
 NES.CPU = function(Callbacks)
 {
+	var Self = this;
 	var PC; // Program counter.
 	var S; // Stack pointer.
 	var A; // Accumulator.
@@ -25,12 +26,98 @@ NES.CPU = function(Callbacks)
 	A = X = Y = 0;
 	Carry = Zero = DecimalMode = Break = Overflow = Negative = false;
 	IRQDisable = true;
-	this.PC = function(NewPC) { if (NewPC) PC = NewPC; else return PC; };
+	Self.PC = function(NewPC) { if (NewPC) PC = NewPC; else return PC; };
 
 	var ReadByte = Callbacks.ReadByte;
 	var WriteByte = Callbacks.WriteByte;
 
-	this.Step = function()
+	// Pretty-print the 10 instructions starting from PC.
+	Self.Disassemble = function()
+	{
+		var TempPC = PC;
+
+		var Output = [];
+		while (Output.length < 10)
+		{
+			var Instruction = { "PC": TempPC };
+			var Opcode = Opcodes[ReadByte(TempPC)] || {};
+			TempPC++;
+
+			Instruction.Text = (Opcode.Instruction || {}).name || "???";
+
+			var Argument;
+			switch (Opcode.AddressingMode.name)
+			{
+				case "Immediate":
+				case "Relative":
+				case "ZeroPage":
+				case "ZeroPageX":
+				case "ZeroPageY":
+				case "IndirectIndexed":
+				case "IndirectIndexed_RW":
+				case "IndexedIndirect":
+					Argument = ("00" + ReadByte(TempPC).toString(16)).substr(-2, 2);
+					TempPC++;
+					break;
+
+				case "Absolute":
+				case "AbsoluteX":
+				case "AbsoluteY":
+				case "AbsoluteX_RW":
+				case "AbsoluteY_RW":
+				case "Indirect":
+					var Low = ReadByte(TempPC);
+					var High = ReadByte(TempPC + 1);
+					Argument = ("0000" + ((High << 8) | Low).toString(16)).substr(-4, 4);
+					TempPC += 2;
+					break;
+
+				default:
+					break;
+			}
+
+			switch (Opcode.AddressingMode.name)
+			{
+				case "Immediate":
+				case "Absolute":
+				case "Relative":
+				case "ZeroPage":
+					Instruction.Text += " $" + Argument;
+					break;
+
+				case "AbsoluteX":
+				case "AbsoluteX_RW":
+				case "ZeroPageX":
+					Instruction.Text += " $" + Argument + ", X";
+					break;
+
+				case "AbsoluteY":
+				case "AbsoluteY_RW":
+				case "ZeroPageY":
+					Instruction.Text += " $" + Argument + ", Y";
+					break;
+
+				case "IndirectIndexed":
+				case "IndirectIndexed_RW":
+					Instruction.Text += " ($" + Argument + "), Y";
+					break;
+
+				case "IndexedIndirect":
+					Instruction.Text += " ($" + Argument + ", X)";
+					break;
+
+				case "Indirect":
+					Instruction.Text + " ($" + Argument + ")";
+					break;
+			}
+
+			Output.push(Instruction);
+		}
+
+		return Output;
+	}
+
+	Self.Step = function()
 	{
 		// Fetch the next opcode.
 		var OpcodeIndex = ReadByte(PC);
@@ -250,7 +337,7 @@ NES.CPU = function(Callbacks)
 	}
 
 	// Absolute Y-indexed addressing mode.
-	// e.g., LDA $3000,X
+	// e.g., LDA $3000,Y
 	function AbsoluteY()
 	{
 		var Low = ReadByte(PC + 1);

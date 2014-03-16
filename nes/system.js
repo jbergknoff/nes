@@ -8,15 +8,16 @@ var NES = NES || {};
 // the CPU, PPU, APU, cartridge, etc.
 NES.System = function(Callbacks)
 {
+	var Self = this;
 	var RAM = new Uint8Array(0x800);
-	var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });;
+	var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });
 	var PPU;
 	var Cartridge;
 
 	var CurrentInterrupt = NES.InterruptType.None;
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
-	this.LoadCartridge = function(ROMData)
+	Self.LoadCartridge = function(ROMData)
 	{
 		Cartridge = new NES.Cartridge(ROMData);
 		if (!Cartridge.IsValid()) return console.log("rom not valid");
@@ -26,8 +27,9 @@ NES.System = function(Callbacks)
 		console.log("starting program at " + StartingPC.toString(16));
 
 		CPU.PC(StartingPC);
+		console.log(JSON.stringify(CPU.Disassemble()));
 		// TODO: gross that this is here and not up there, but Cartridge.Mapper() isn't defined until now.
-		PPU = new NES.PPU
+		/*PPU = new NES.PPU
 		(
 			{
 				"ReadCHR": Cartridge.Mapper().ReadCHR(),
@@ -43,7 +45,9 @@ NES.System = function(Callbacks)
 			function(CB)
 			{
 				CPU.Step();
-				PPU.Tick(); // TODO: this is very wrong. placeholder.
+				PPU.Tick();
+				PPU.Tick();
+				PPU.Tick();
 				if (CurrentInterrupt != NES.InterruptType.None)
 				{
 					console.log("handling interrupt " + CurrentInterrupt);
@@ -52,7 +56,7 @@ NES.System = function(Callbacks)
 
 				setTimeout(function() { CB(); }, 0);
 			}
-		);
+		);*/
 	}
 
 	function ReadByte(Address)
