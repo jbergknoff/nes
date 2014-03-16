@@ -22,6 +22,9 @@
 
 	<div class="column twelve">
 		<button data-bind="click: Step">step</button>
+		<button data-bind="click: Run">run</button>
+		<span>breakpoint:</span>
+		<input type="text" data-bind="value: Breakpoint">
 	</div>
 
 	<div class="column three">
@@ -74,6 +77,7 @@ function DebuggerModel()
 	var System = ko.observable();
 	Self.CPUDetails = ko.observable();
 	Self.MemoryOffset = ko.observable();
+	Self.Breakpoint = ko.observable();
 
 	Self.ChooseROM = function(Data, E)
 	{
@@ -111,10 +115,23 @@ function DebuggerModel()
 		Self.CPUDetails(System().CPUDetails());
 	};
 
+	Self.Run = function()
+	{
+		var Breakpoint = parseInt(Self.Breakpoint(), 16);
+		while (true)
+		{
+			var NewPC = System().Step();
+			if (NewPC == Breakpoint) break;
+		}
+
+		Self.CPUDetails(System().CPUDetails());
+	}
+
 	Self.Memory = ko.computed
 	(
 		function()
 		{
+			Self.CPUDetails();
 			if (!System()) return;
 			var RowLength = 0x10;
 			var Offset = parseInt(Self.MemoryOffset(), 16);

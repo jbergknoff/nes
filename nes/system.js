@@ -61,7 +61,12 @@ NES.System = function(Callbacks)
 
 	Self.Disassemble = function() { return CPU.Disassemble(); };
 	Self.CPUDetails = function() { return CPU.Details(); };
-	Self.Step = function() { CPU.Step(); };
+
+	Self.Step = function()
+	{
+		CPU.Step();
+		return CPU.PC();
+	};
 
 	Self.MemoryDump = function(Start, Length)
 	{
