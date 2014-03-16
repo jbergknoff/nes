@@ -1,6 +1,7 @@
 <html>
 <head>
 	<title>nes</title>
+	<link rel="stylesheet" href="http://www.hmphry.com/barebones/css/barebones.css">
 	<script src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.0.0/knockout-min.js"></script>
 	<script src="./nes/constants.js"></script>
 	<script src="./nes/system.js"></script>
@@ -14,26 +15,57 @@
 
 <input type="file" data-bind="event: { change: ChooseROM }">
 <!--<canvas id="c" width="256" height="256"></canvas>-->
-<button data-bind="click: Step">step</button>
 
-<ul data-bind="foreach: Disassembly">
-	<!-- ko if: typeof PC !== "undefined" -->
-	<li>
-		<span data-bind="text: '$' + ('0000' + PC.toString(16)).substr(-4, 4)" style="color: lightgray"></span>
-		<span data-bind="text: Text"></span>
-	</li>
-	<!-- /ko -->
-</ul>
+<hr>
 
-<!-- ko if: typeof CPUDetails() !== "undefined" -->
-<table>
-<tr><td>PC</td><td data-bind="text: '$' + ('0000' + CPUDetails().PC.toString(16)).substr(-4, 4)"></td></tr>
-<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
-<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
-<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
-<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
-</table>
-<!-- /ko -->
+<div class="container" style="font-family: monospace">
+
+	<div class="column twelve">
+		<button data-bind="click: Step">step</button>
+	</div>
+
+	<div class="column three">
+		<table data-bind="foreach: Disassembly">
+			<tbody>
+			<!-- ko if: typeof PC !== "undefined" -->
+			<tr>
+				<td data-bind="text: '$' + ('0000' + PC.toString(16)).substr(-4, 4)" style="color: lightgray"></td>
+				<td data-bind="text: Text"></td>
+			</tr>
+			<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
+
+	<div class="column one">
+		<!-- ko if: typeof CPUDetails() !== "undefined" -->
+		<table>
+		<tr><td>PC</td><td data-bind="text: '$' + ('0000' + CPUDetails().PC.toString(16)).substr(-4, 4)"></td></tr>
+		<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
+		</table>
+		<!-- /ko -->
+	</div>
+
+	<div class="column eight">
+		<span>memory offset:</span>
+		<input type="text" data-bind="value: MemoryOffset">
+		<br>
+		<!-- ko if: typeof Memory() !== "undefined" -->
+		<table data-bind="foreach: Memory">
+			<tbody>
+			<tr>
+				<td data-bind="text: '$' + ('0000' + (parseInt($root.MemoryOffset(), 16) + 0x10 * $index()).toString(16)).substr(-4, 4)" style="color: lightgray"></td>
+				<td data-bind="foreach: $data">
+					<span data-bind="text: '$' + ('00' + $data.toString(16)).substr(-2, 2)"></span>
+				</td>
+		</table>
+		<!-- /ko -->
+	</div>
+
+</div>
 
 <script type="text/javascript">
 function DebuggerModel()
@@ -41,6 +73,7 @@ function DebuggerModel()
 	var Self = this;
 	var System = ko.observable();
 	Self.CPUDetails = ko.observable();
+	Self.MemoryOffset = ko.observable();
 
 	Self.ChooseROM = function(Data, E)
 	{
@@ -55,6 +88,7 @@ function DebuggerModel()
 				System(new NES.System());
 				System().LoadCartridge(new Uint8Array(FR.result));
 				Self.CPUDetails(System().CPUDetails());
+				Self.MemoryOffset("0000");
 			}
 		);
 
@@ -75,7 +109,23 @@ function DebuggerModel()
 	{
 		System().Step();
 		Self.CPUDetails(System().CPUDetails());
-	}
+	};
+
+	Self.Memory = ko.computed
+	(
+		function()
+		{
+			if (!System()) return;
+			var RowLength = 0x10;
+			var Offset = parseInt(Self.MemoryOffset(), 16);
+			var Dump = System().MemoryDump(Offset, 8 * RowLength);
+			var Memory = [];
+			while (Dump.length > 0)
+				Memory.push(Dump.splice(0, RowLength));
+
+			return Memory;
+		}
+	);
 }
 
 ko.applyBindings(new DebuggerModel());

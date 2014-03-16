@@ -63,6 +63,15 @@ NES.System = function(Callbacks)
 	Self.CPUDetails = function() { return CPU.Details(); };
 	Self.Step = function() { CPU.Step(); };
 
+	Self.MemoryDump = function(Start, Length)
+	{
+		var Memory = [];
+		for (var i = 0; i < Length; i++)
+			Memory.push(ReadByte(Start + i));
+
+		return Memory;
+	};
+
 	function ReadByte(Address)
 	{
 		Address &= 0xFFFF;
