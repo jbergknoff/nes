@@ -250,7 +250,11 @@ NES.PPU = function(Callbacks)
 				ControlRegister1 = Value;
 				if (RaiseNMI && !NMIInhibit) RaiseInterrupt(NES.InterruptType.NMI);
 				// Special case: disabling NMI on second pixel of VBlank should cancel NMI.
-				if ((Value & 0x80) == 0 && Scanline == NES.ScanlineVBlankBegin && Pixel == 1) RaiseInterrupt(NES.InterruptType.CancelNMI);
+				if ((Value & 0x80) == 0 && Scanline == NES.ScanlineVBlankBegin && Pixel == 1)
+				{
+					console.log("cancel nmi 1");
+					RaiseInterrupt(NES.InterruptType.CancelNMI);
+				}
 
 				TempVRAMAddress = (TempVRAMAddress & 0xF3FF) | ((Value & 3) << 10);
 				break;
@@ -357,7 +361,11 @@ NES.PPU = function(Callbacks)
 				{
 					InVBlank = true;
 					NMIInhibit = true;
-					if (Pixel == 1) RaiseInterrupt(NES.InterruptType.CancelNMI);
+					if (Pixel == 1)
+					{
+						console.log("cancel nmi 2");
+						RaiseInterrupt(NES.InterruptType.CancelNMI);
+					}
 				}
 
 				var Value = (InVBlank ? 0x80 : 0) | (SpriteZeroHit ? 0x40 : 0) | (SpriteOverflow ? 0x20 : 0);

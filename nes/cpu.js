@@ -21,6 +21,8 @@ NES.CPU = function(Callbacks)
 	var Overflow;
 	var Negative;
 
+	var Cycles;
+
 	// Start-up values according to http://wiki.nesdev.com/w/index.php/CPU_power_up_state
 	S = 0xFD;
 	A = X = Y = 0;
@@ -38,7 +40,8 @@ NES.CPU = function(Callbacks)
 		Details.A = A;
 		Details.X = X;
 		Details.Y = Y;
-		Details.S = StatusRegister();
+		Details.P = StatusRegister();
+		Details.S = S;
 		return Details;
 	};
 
@@ -59,8 +62,12 @@ NES.CPU = function(Callbacks)
 			var Argument;
 			switch (Opcode.AddressingMode.name)
 			{
-				case "Immediate":
 				case "Relative":
+					Argument = ReadByte(TempPC);
+					TempPC++;
+					break;
+
+				case "Immediate":
 				case "ZeroPage":
 				case "ZeroPageX":
 				case "ZeroPageY":
@@ -91,6 +98,11 @@ NES.CPU = function(Callbacks)
 			{
 				case "Immediate":
 					Instruction.Text += " #$" + Argument;
+					break;
+
+				case "Relative":
+					if (Argument > 127) Argument -= 0x100;
+					Instruction.Text += " $" + (Instruction.PC + 2 + Argument).toString(16).substr(-4,4);
 					break;
 
 				case "Absolute":
@@ -138,10 +150,12 @@ NES.CPU = function(Callbacks)
 		CurrentOpcode = Opcodes[OpcodeIndex];
 		if (!CurrentOpcode) throw "Opcode $" + OpcodeIndex.ToString(16) + " not implemented.";
 
+		Cycles = 0;
 		// Execute the addressing mode preparation.
 		CurrentOpcode.AddressingMode();
 		if (CurrentOpcode.NeedsReadFromMemory) TempM = ReadByte(TempAddress);
 		CurrentOpcode.Instruction();
+		return Cycles + ~~CurrentOpcode.Instruction.Cycles;
 	}
 
 	function StatusRegister()
@@ -164,7 +178,14 @@ NES.CPU = function(Callbacks)
 		return M;
 	}
 
-
+	Self.PrepareInterrupt = function(InterruptVector)
+	{
+		PushStack((PC >> 8) && 0xFF);
+		PushStack(PC & 0xFF);
+		PushStack((StatusRegister() | (Break ? 0x10 : 0)) & 0xFF);
+		IRQDisable = true;
+		PC = InterruptVector;
+	}
 
 
 
@@ -318,6 +339,7 @@ NES.CPU = function(Callbacks)
 		TempM = 0;
 		TempAddress = 0;
 		++PC;
+		Cycles = 1;
 	}
 
 	// Immediate addressing mode.
@@ -327,6 +349,7 @@ NES.CPU = function(Callbacks)
 		TempM = ReadByte(PC + 1);
 		TempAddress = 0;
 		PC += 2;
+		Cycles = 1;
 	}
 
 	// Absolute addressing mode //(read): $AD LDA / $AE LDX / $AC LDY / $4D EOR / $2D AND / $0D ORA / $6D ADC / $ED SBC / $CD CMP / $EC CPX / $CC CPY / $2C BIT.
@@ -337,6 +360,7 @@ NES.CPU = function(Callbacks)
 		var High = ReadByte(PC + 2);
 		TempAddress = (High << 8) | Low;
 		PC += 3;
+		Cycles = 3;
 	}
 
 	// Absolute X-indexed addressing mode.
@@ -348,6 +372,9 @@ NES.CPU = function(Callbacks)
 		var EffectiveAddress = (High << 8) | Low;
 		TempAddress = (EffectiveAddress + X) & 0xFFFF;
 		PC += 3;
+
+		Cycles = 3;
+		if ((EffectiveAddress & 0xFF00) != (TempAddress & 0xFF00)) ++Cycles; // Crossed page. Add one cycle.
 	}
 
 	// Absolute Y-indexed addressing mode.
@@ -359,11 +386,14 @@ NES.CPU = function(Callbacks)
 		var EffectiveAddress = (High << 8) | Low;
 		TempAddress = (EffectiveAddress + Y) & 0xFFFF;
 		PC += 3;
+
+		Cycles = 3;
+		if ((EffectiveAddress & 0xFF00) != (TempAddress & 0xFF00)) ++Cycles; // Crossed page. Add one cycle.
 	}
 
 	// Read/write operations with indexed absolute addressing have an anomalous extra cycle.
-	function AbsoluteX_RW() { AbsoluteX(); } // CycleCounter = 4;
-	function AbsoluteY_RW() { AbsoluteY(); } // CycleCounter = 4;
+	function AbsoluteX_RW() { AbsoluteX(); Cycles = 4; }
+	function AbsoluteY_RW() { AbsoluteY(); Cycles = 4; }
 
 	// Zero-page addressing mode.
 	// e.g., LDA $10
@@ -371,6 +401,7 @@ NES.CPU = function(Callbacks)
 	{
 		TempAddress = ReadByte(PC + 1);
 		PC += 2;
+		Cycles = 2;
 	}
 
 	// Zero-page X-indexed addressing mode.
@@ -379,6 +410,7 @@ NES.CPU = function(Callbacks)
 	{
 		TempAddress = (ReadByte(PC + 1) + X) & 0xFF;
 		PC += 2;
+		Cycles = 3;
 	}
 
 	// Zero-page Y-indexed addressing mode.
@@ -387,6 +419,7 @@ NES.CPU = function(Callbacks)
 	{
 		TempAddress = (ReadByte(PC + 1) + Y) & 0xFF;
 		PC += 2;
+		Cycles = 3;
 	}
 
 	// Indexed indirect addressing mode.
@@ -398,6 +431,7 @@ NES.CPU = function(Callbacks)
 		var High = ReadByte((ZeroPageIndex + X + 1) & 0xFF);
 		TempAddress = (High << 8) | Low;
 		PC += 2;
+		Cycles = 5;
 	}
 
 	// Indirect indexed addressing mode.
@@ -410,9 +444,12 @@ NES.CPU = function(Callbacks)
 		var EffectiveAddress = (High << 8) | Low;
 		TempAddress = (EffectiveAddress + Y) & 0xFFFF;
 		PC += 2;
+
+		Cycles = 4;
+		if ((EffectiveAddress & 0xFF00) != (TempAddress & 0xFF00)) ++Cycles; // Crossed page. Add one cycle.
 	}
 
-	function IndirectIndexed_RW() { IndirectIndexed(); } // CycleCounter = 5;
+	function IndirectIndexed_RW() { IndirectIndexed(); Cycles = 5; }
 
 	// Relative addressing mode.
 	// e.g., BEQ $A7
@@ -423,6 +460,7 @@ NES.CPU = function(Callbacks)
 		PC += 2;
 		TempAddress = PC + Relative;
 		TempM = 0;
+		Cycles = 2;
 	}
 
 	// Indirect addressing mode.
@@ -437,6 +475,7 @@ NES.CPU = function(Callbacks)
 		TempAddress = (NewHigh << 8) | NewLow;
 		TempM = 0;
 		PC += 3;
+		Cycles = 5;
 	}
 
 
@@ -463,6 +502,7 @@ NES.CPU = function(Callbacks)
 		Overflow = (((A ^ TempM) & 0x80) == 0) && (((A ^ Result) & 0x80) != 0);
 		A = (Result & 0xFF);
 	}
+	ADC.Cycles = 1;
 
 	function AND()
 	{
@@ -470,6 +510,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	AND.Cycles = 1;
 
 	function ASL()
 	{
@@ -480,6 +521,7 @@ NES.CPU = function(Callbacks)
 		Zero = (TempM == 0);
 		Negative = (TempM & 0x80) != 0;
 	}
+	ASL.Cycles = 3;
 
 	function ASL_A()
 	{
@@ -489,6 +531,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	ASL_A.Cycles = 1;
 
 	function GenericBranch(TakeBranch)
 	{
@@ -512,6 +555,7 @@ NES.CPU = function(Callbacks)
 		Negative = (TempM & 0x80) != 0;
 		Overflow = (TempM & 0x40) != 0;
 	}
+	BIT.Cycles = 1;
 
 	function BMI() { GenericBranch(Negative); }
 	function BNE() { GenericBranch(!Zero); }
@@ -529,9 +573,13 @@ NES.CPU = function(Callbacks)
 	function BVS() { GenericBranch(Overflow); }
 
 	function CLC() { Carry = false; }
+	CLC.Cycles = 1;
 	function CLD() { DecimalMode = false; }
+	CLD.Cycles = 1;
 	function CLI() { IRQDisable = false; }
+	CLI.Cycles = 1;
 	function CLV() { Overflow = false; }
+	CLV.Cycles = 1;
 
 	function CMP()
 	{
@@ -540,6 +588,7 @@ NES.CPU = function(Callbacks)
 		Carry = (Result >= 0);
 		Negative = (Result & 0x80) != 0;
 	}
+	CMP.Cycles = 1;
 
 	function CPX()
 	{
@@ -548,6 +597,7 @@ NES.CPU = function(Callbacks)
 		Carry = (Result >= 0);
 		Negative = (Result & 0x80) != 0;
 	}
+	CPX.Cycles = 1;
 
 	function CPY()
 	{
@@ -556,6 +606,7 @@ NES.CPU = function(Callbacks)
 		Carry = (Result >= 0);
 		Negative = (Result & 0x80) != 0;
 	}
+	CPY.Cycles = 1;
 
 	function DEC()
 	{
@@ -564,6 +615,7 @@ NES.CPU = function(Callbacks)
 		Zero = (TempM == 0);
 		Negative = (TempM & 0x80) != 0;
 	}
+	DEC.Cycles = 3;
 
 	function DEX()
 	{
@@ -572,6 +624,7 @@ NES.CPU = function(Callbacks)
 		Zero = (X == 0);
 		Negative = (X & 0x80) != 0;
 	}
+	DEX.Cycles = 1;
 
 	function DEY()
 	{
@@ -580,6 +633,7 @@ NES.CPU = function(Callbacks)
 		Zero = (Y == 0);
 		Negative = (Y & 0x80) != 0;
 	}
+	DEY.Cycles = 1;
 
 	function EOR()
 	{
@@ -587,6 +641,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	EOR.Cycles = 1;
 
 	function INC()
 	{
@@ -595,6 +650,7 @@ NES.CPU = function(Callbacks)
 		Zero = (TempM == 0);
 		Negative = (TempM & 0x80) != 0;
 	}
+	INC.Cycles = 3;
 
 	function INX()
 	{
@@ -603,6 +659,7 @@ NES.CPU = function(Callbacks)
 		Zero = (X == 0);
 		Negative = (X & 0x80) != 0;
 	}
+	INX.Cycles = 1;
 
 	function INY()
 	{
@@ -611,6 +668,7 @@ NES.CPU = function(Callbacks)
 		Zero = (Y == 0);
 		Negative = (Y & 0x80) != 0;
 	}
+	INY.Cycles = 1;
 
 	function JMP() { PC = TempAddress; }
 
@@ -623,6 +681,7 @@ NES.CPU = function(Callbacks)
 		PushStack(ReturnPoint);
 		PC = TempAddress;
 	}
+	JSR.Cycles = 3;
 
 	function LDA()
 	{
@@ -630,6 +689,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	LDA.Cycles = 1;
 
 	function LDX()
 	{
@@ -637,6 +697,7 @@ NES.CPU = function(Callbacks)
 		Zero = (X == 0);
 		Negative = (X & 0x80) != 0;
 	}
+	LDX.Cycles = 1;
 
 	function LDY()
 	{
@@ -644,6 +705,7 @@ NES.CPU = function(Callbacks)
 		Zero = (Y == 0);
 		Negative = (Y & 0x80) != 0;
 	}
+	LDY.Cycles = 1;
 
 	function LSR()
 	{
@@ -653,6 +715,7 @@ NES.CPU = function(Callbacks)
 		Negative = false;
 		WriteByte(TempAddress, TempM);
 	}
+	LSR.Cycles = 3;
 
 	function LSR_A()
 	{
@@ -661,8 +724,10 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = false;
 	}
+	LSR_A.Cycles = 1;
 
 	function NOP() { }
+	NOP.Cycles = 1;
 
 	function ORA()
 	{
@@ -670,17 +735,20 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	ORA.Cycles = 1;
 
 	function PHA()
 	{
 		PushStack(A);
 	}
+	PHA.Cycles = 2;
 
 	function PHP()
 	{
 		// PHP always pushes the break flag.
 		PushStack(StatusRegister() | 0x10);
 	}
+	PHP.Cycles = 2;
 
 	function PLA()
 	{
@@ -688,6 +756,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	PLA.Cycles = 3;
 
 	function PLP()
 	{
@@ -701,6 +770,7 @@ NES.CPU = function(Callbacks)
 		Negative = (Status & 0x80) != 0;
 		// Break is ignored when Status is popped. See NinTech.txt line 192.
 	}
+	PLP.Cycles = 3;
 
 	function ROL()
 	{
@@ -713,6 +783,7 @@ NES.CPU = function(Callbacks)
 		Negative = (M & 0x80) != 0;
 		WriteByte(TempAddress, M);
 	}
+	ROL.Cycles = 3;
 
 	function ROL_A()
 	{
@@ -723,6 +794,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	ROL_A.Cycles = 1;
 
 	function ROR()
 	{
@@ -735,6 +807,7 @@ NES.CPU = function(Callbacks)
 		Negative = (M & 0x80) != 0;
 		WriteByte(TempAddress, M);
 	}
+	ROR.Cycles = 3;
 
 	function ROR_A()
 	{
@@ -745,6 +818,7 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	ROR_A.Cycles = 1;
 
 	function RTI()
 	{
@@ -763,6 +837,7 @@ NES.CPU = function(Callbacks)
 		var High = PopStack();
 		PC = (High << 8) | Low;
 	}
+	RTI.Cycles = 5;
 
 	function RTS()
 	{
@@ -771,6 +846,7 @@ NES.CPU = function(Callbacks)
 		var High = PopStack();
 		PC = ((High << 8) | Low) + 1;
 	}
+	RTS.Cycles = 5;
 
 	function SBC()
 	{
@@ -786,14 +862,21 @@ NES.CPU = function(Callbacks)
 		Overflow = (((A ^ TempM) & 0x80) != 0) && (((A ^ Result) & 0x80) != 0);
 		A = (Result & 0xFF);
 	}
+	SBC.Cycles = 1;
 
 	function SEC() { Carry = true; }
+	SEC.Cycles = 1;
 	function SED() { DecimalMode = true; }
+	SED.Cycles = 1;
 	function SEI() { IRQDisable = true; }
+	SEI.Cycles = 1;
 
 	function STA() { WriteByte(TempAddress, A); }
+	STA.Cycles = 1;
 	function STX() { WriteByte(TempAddress, X); }
+	STX.Cycles = 1;
 	function STY() { WriteByte(TempAddress, Y); }
+	STY.Cycles = 1;
 
 	function TAX()
 	{
@@ -801,6 +884,7 @@ NES.CPU = function(Callbacks)
 		Zero = (X == 0);
 		Negative = (X & 0x80) != 0;
 	}
+	TAX.Cycles = 1;
 
 	function TAY()
 	{
@@ -808,6 +892,7 @@ NES.CPU = function(Callbacks)
 		Zero = (Y == 0);
 		Negative = (Y & 0x80) != 0;
 	}
+	TAY.Cycles = 1;
 
 	function TSX()
 	{
@@ -815,6 +900,7 @@ NES.CPU = function(Callbacks)
 		Zero = (X == 0);
 		Negative = (X & 0x80) != 0;
 	}
+	TSX.Cycles = 1;
 
 	function TXA()
 	{
@@ -822,8 +908,10 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	TXA.Cycles = 1;
 
 	function TXS() { S = X; }
+	TXS.Cycles = 1;
 
 	function TYA()
 	{
@@ -831,4 +919,5 @@ NES.CPU = function(Callbacks)
 		Zero = (A == 0);
 		Negative = (A & 0x80) != 0;
 	}
+	TYA.Cycles = 1;
 }

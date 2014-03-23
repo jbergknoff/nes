@@ -65,13 +65,24 @@ NES.System = function(Callbacks)
 	Self.Disassemble = function() { return CPU.Disassemble(); };
 	Self.CPUDetails = function() { return CPU.Details(); };
 
+	var PPUCycleCounter = 0;
 	Self.Step = function()
 	{
-		CPU.Step();
-		// TODO: replace with catch-up with cycle counting.
-		PPU.Tick();
-		PPU.Tick();
-		PPU.Tick();
+		var CPUCycles = CPU.Step();
+
+		PPUCycleCounter += CPUCycles * NES.CyclesPerCPUCycle;
+		while (PPUCycleCounter > NES.CyclesPerPixel)
+		{
+			PPU.Tick();
+			PPUCycleCounter -= NES.CyclesPerPixel;
+		}
+
+		if (CurrentInterrupt != NES.InterruptType.None)
+		{
+			console.log("handling interrupt " + CurrentInterrupt);
+			HandleInterrupt();
+		}
+
 		return CPU.PC();
 	};
 
@@ -119,7 +130,8 @@ NES.System = function(Callbacks)
 		else if (Address < 0x4018)
 		{
 			if (Address == 0x4016) return;
-			throw "APU register write";
+			if (Address == 0x4017) return;
+			throw "APU register write to " + Address.toString(16).substr(-4, 4);
 		}
 		else if (Address >= 0x6000 && Address < 0x8000)
 			throw "SRAM write";

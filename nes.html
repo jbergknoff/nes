@@ -27,6 +27,10 @@
 		<button data-bind="click: Run">run</button>
 		<span>breakpoint:</span>
 		<input type="text" data-bind="value: Breakpoint">
+		<span>
+			<span data-bind="text: InstructionsExecuted"></span>
+			<span>instructions executed</span>
+		</span>
 
 	</div>
 
@@ -50,6 +54,7 @@
 		<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
 		<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
 		<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>P</td><td data-bind="text: '$' + ('00' + CPUDetails().P.toString(16)).substr(-2, 2)"></td></tr>
 		<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
 		</table>
 		<!-- /ko -->
@@ -82,6 +87,7 @@ function DebuggerModel()
 	Self.MemoryOffset = ko.observable();
 	Self.Breakpoint = ko.observable();
 	Self.Mode = null; // "STEP" vs. "RUN"
+	Self.InstructionsExecuted = ko.observable(0);
 
 	Self.ChooseROM = function(Data, E)
 	{
@@ -118,6 +124,7 @@ function DebuggerModel()
 	{
 		System().Step();
 		Self.CPUDetails(System().CPUDetails());
+		Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
 	};
 
 	Self.Run = function()
@@ -133,6 +140,7 @@ function DebuggerModel()
 				for (var i = 0; i < 5000; i++)
 				{
 					var NewPC = System().Step();
+					Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
 					if (NewPC == Breakpoint)
 					{
 						Self.Mode = "STEP";
