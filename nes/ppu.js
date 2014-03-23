@@ -120,7 +120,6 @@ NES.PPU = function(Callbacks)
 			if (Pixel == 0) InitializeScanline();
 
 			var PixelColor = ProcessPixel();
-			if (PixelColor != 0) console.log("non-zero pixel!");
 			Screen[NES.VisiblePixelsPerScanline * Scanline + Pixel] = PixelColor;
 		}
 

@@ -123,6 +123,7 @@ NES.System = function(Callbacks)
 			{
 				var Start = (Value & 7) * 0x100;
 				PPU.DMA(RAM.subarray(Start, Start + 0x100));
+				// TODO: cycles for DMA
 			}
 			else
 				PPU.WriteRegister(Address, Value);

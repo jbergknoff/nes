@@ -60,7 +60,7 @@ NES.CPU = function(Callbacks)
 			Instruction.Text = (Opcode.Instruction || {}).name || "???";
 
 			var Argument;
-			switch (Opcode.AddressingMode.name)
+			switch ((Opcode.AddressingMode || {}).name)
 			{
 				case "Relative":
 					Argument = ReadByte(TempPC);
@@ -94,7 +94,7 @@ NES.CPU = function(Callbacks)
 					break;
 			}
 
-			switch (Opcode.AddressingMode.name)
+			switch ((Opcode.AddressingMode || {}).name)
 			{
 				case "Immediate":
 					Instruction.Text += " #$" + Argument;
@@ -180,7 +180,7 @@ NES.CPU = function(Callbacks)
 
 	Self.PrepareInterrupt = function(InterruptVector)
 	{
-		PushStack((PC >> 8) && 0xFF);
+		PushStack((PC >> 8) & 0xFF);
 		PushStack(PC & 0xFF);
 		PushStack((StatusRegister() | (Break ? 0x10 : 0)) & 0xFF);
 		IRQDisable = true;
