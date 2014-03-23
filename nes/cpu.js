@@ -611,6 +611,7 @@ NES.CPU = function(Callbacks)
 	function DEC()
 	{
 		--TempM;
+		TempM &= 0xFF;
 		WriteByte(TempAddress, TempM);
 		Zero = (TempM == 0);
 		Negative = (TempM & 0x80) != 0;
@@ -646,6 +647,7 @@ NES.CPU = function(Callbacks)
 	function INC()
 	{
 		++TempM;
+		TempM &= 0xFF;
 		WriteByte(TempAddress, TempM);
 		Zero = (TempM == 0);
 		Negative = (TempM & 0x80) != 0;
