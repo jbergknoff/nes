@@ -27,6 +27,8 @@ NES.System = function(Callbacks)
 		console.log("starting program at " + StartingPC.toString(16));
 
 		CPU.PC(StartingPC);
+
+		var DC = document.getElementById("c").getContext("2d");
 		// TODO: gross that this is here and not up there, but Cartridge.Mapper() isn't defined until now.
 		PPU = new NES.PPU
 		(
@@ -37,7 +39,18 @@ NES.System = function(Callbacks)
 				//"DrawScreen": function(a) { console.log(a); throw "can't draw the screen yet"; }
 				"DrawScreen": function(Screen, FrameCounter)
 				{
-					console.log("drawing frame %d", FrameCounter);
+					var ID = DC.createImageData(256, 240);
+
+					for (var i = 0; i < 256 * 240; i++)
+					{
+						ID.data[4 * i + 0] = NES.Colors[Screen[i]][0];
+						ID.data[4 * i + 1] = NES.Colors[Screen[i]][1];
+						ID.data[4 * i + 2] = NES.Colors[Screen[i]][2];
+						ID.data[4 * i + 3] = 255;
+					}
+
+					//console.log("drawing frame %d", FrameCounter);
+					DC.putImageData(ID, 0, 0);
 				}
 			}
 		);
@@ -104,7 +117,10 @@ NES.System = function(Callbacks)
 		else if (Address < 0x4000)
 			return PPU.ReadRegister(Address);
 		else if (Address < 0x6000)
+		{
+			if (Address == 0x4016) return 0; // TODO: poll input
 			throw "APU/input register read";
+		}
 		else if (Address < 0x8000)
 			throw "SRAM read";
 		else
