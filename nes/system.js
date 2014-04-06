@@ -92,7 +92,6 @@ NES.System = function(Callbacks)
 
 		if (CurrentInterrupt != NES.InterruptType.None)
 		{
-			console.log("handling interrupt " + CurrentInterrupt);
 			HandleInterrupt();
 		}
 
@@ -119,7 +118,8 @@ NES.System = function(Callbacks)
 		else if (Address < 0x6000)
 		{
 			if (Address == 0x4016) return 0; // TODO: poll input
-			throw "APU/input register read";
+			if (Address == 0x4017) return 0;
+			throw "APU/input register read " + Address.toString(16).substr(-4, 4);
 		}
 		else if (Address < 0x8000)
 			throw "SRAM read";
@@ -146,9 +146,8 @@ NES.System = function(Callbacks)
 		}
 		else if (Address < 0x4018)
 		{
-			if (Address == 0x4016) return;
-			if (Address == 0x4017) return;
-			throw "APU register write to " + Address.toString(16).substr(-4, 4);
+			//console.log("APU register write to " + Address.toString(16).substr(-4, 4));
+			return;
 		}
 		else if (Address >= 0x6000 && Address < 0x8000)
 			throw "SRAM write";

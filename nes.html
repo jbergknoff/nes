@@ -143,7 +143,7 @@ function DebuggerModel()
 				for (var i = 0; i < 5000; i++)
 				{
 					var NewPC = System().Step();
-					Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
+					//Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
 					if (NewPC == Breakpoint)
 					{
 						Self.Mode = "STEP";
