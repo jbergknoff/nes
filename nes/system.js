@@ -13,6 +13,7 @@ NES.System = function(Callbacks)
 	var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });
 	var PPU;
 	var Cartridge;
+	var PollInput = (Callbacks || {}).PollInput;
 
 	var CurrentInterrupt = NES.InterruptType.None;
 
@@ -117,7 +118,7 @@ NES.System = function(Callbacks)
 			return PPU.ReadRegister(Address);
 		else if (Address < 0x6000)
 		{
-			if (Address == 0x4016) return 0; // TODO: poll input
+			if (Address == 0x4016) return PollInput() ? 1 : 0;
 			if (Address == 0x4017) return 0;
 			throw "APU/input register read " + Address.toString(16).substr(-4, 4);
 		}

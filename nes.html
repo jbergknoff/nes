@@ -15,7 +15,6 @@
 <body>
 
 <input type="file" data-bind="event: { change: ChooseROM }">
-<!--<canvas id="c" width="256" height="256"></canvas>-->
 
 <hr>
 
@@ -102,7 +101,7 @@ function DebuggerModel()
 			function()
 			{
 				if (FR.error) return console.log("error reading the ROM", FR.error);
-				System(new NES.System());
+				System(new NES.System({ "PollInput": new InputPoller() }));
 				System().LoadCartridge(new Uint8Array(FR.result));
 				Self.CPUDetails(System().CPUDetails());
 				Self.MemoryOffset("0000");
@@ -185,6 +184,76 @@ function DebuggerModel()
 }
 
 ko.applyBindings(new DebuggerModel());
+
+function InputPoller()
+{
+	var Counter = 0;
+
+	return function()
+	{
+		var Value = !!Buttons[Counter];
+		Counter = (Counter + 1) & 7;
+		return Value;
+	}
+}
+
+var ButtonIndex =
+{
+	"A": 0,
+	"B": 1,
+	"Select": 2,
+	"Start": 3,
+	"Up": 4,
+	"Down": 5,
+	"Left": 6,
+	"Right": 7
+};
+
+var Buttons = Object.keys(ButtonIndex).map(function() { return false; });
+
+document.addEventListener("keyup", HandleInput(false));
+document.addEventListener("keydown", HandleInput(true));
+
+function HandleInput(State)
+{
+	return function(E)
+	{
+		switch (E.keyCode)
+		{
+			case 90: // z
+				Buttons[ButtonIndex.A] = State;
+				return;
+
+			case 88: // x
+				Buttons[ButtonIndex.B] = State;
+				return;
+
+			case 32: // space
+				Buttons[ButtonIndex.Select] = State;
+				return;
+
+			case 13: // enter
+				Buttons[ButtonIndex.Start] = State;
+				return;
+
+			case 38: // up
+				Buttons[ButtonIndex.Up] = State;
+				return;
+
+			case 40: // down
+				Buttons[ButtonIndex.Down] = State;
+				return;
+
+			case 37: // left
+				Buttons[ButtonIndex.Left] = State;
+				return;
+
+			case 39: // right
+				Buttons[ButtonIndex.Right] = State;
+				return;
+		}
+	};
+}
 </script>
 </body>
 </html>
