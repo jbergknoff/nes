@@ -107,7 +107,7 @@ NES.PPU = function(Callbacks)
 	{
 		// Scanlines 0 - 239 are the picture, 240 is junk and 241 indicates the beginning of VBlank.
 		// This NMI may actually be canceled if $2002 is written to during the second pixel of SL 241.
-		if (Scanline == NES.ScanlineVBlankBegin && Pixel == 0 && !NMIInhibit && FrameCounter > 0)
+		if (Scanline == NES.ScanlineVBlankBegin && Pixel == 0 && !NMIInhibit)
 		{
 			InVBlank = true;
 			if ((ControlRegister1 & 0x80) != 0) RaiseInterrupt(NES.InterruptType.NMI);
@@ -431,7 +431,6 @@ NES.PPU = function(Callbacks)
 		var PatternTableByte0, PatternTableByte1;
 		var LowColor, PaletteIndex;
 
-		//SpritePixels = new byte[NES.VisiblePixelsPerScanline * NES.VisibleScanlines];
 		SpritePixels = new Uint8Array(256 * 240);
 		SpriteZeroX = SpriteMemory[3];
 		SpriteZeroY = SpriteMemory[0] + 1;
@@ -500,7 +499,9 @@ NES.PPU = function(Callbacks)
 						}
 
 						PaletteIndex = LowColor | ((Attributes << 2) & 0x0C);
-						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF;
+						// |= is necessary for sprite zero hit to work, but apparently this is also related
+						// to the red waterfall in the zelda 1 intro. Revisit when mapper 1 is implemented.
+						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] |= (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF;
 					}
 				}
 			}
