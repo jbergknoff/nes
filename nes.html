@@ -191,13 +191,13 @@ function InputPoller()
 
 	return function()
 	{
-		var Value = !!Buttons[Counter];
+		var Value = !!ButtonState[Counter];
 		Counter = (Counter + 1) & 7;
 		return Value;
 	}
 }
 
-var ButtonIndex =
+var Buttons =
 {
 	"A": 0,
 	"B": 1,
@@ -209,7 +209,19 @@ var ButtonIndex =
 	"Right": 7
 };
 
-var Buttons = Object.keys(ButtonIndex).map(function() { return false; });
+var ButtonState = Object.keys(Buttons).map(function() { return false; });
+
+var ButtonKeyCodes =
+{
+	90: Buttons.A, // z
+	88: Buttons.B, // x
+	32: Buttons.Select, // space
+	13: Buttons.Start, // enter
+	38: Buttons.Up,
+	40: Buttons.Down,
+	37: Buttons.Left,
+	39: Buttons.Right
+};
 
 document.addEventListener("keyup", HandleInput(false));
 document.addEventListener("keydown", HandleInput(true));
@@ -218,40 +230,11 @@ function HandleInput(State)
 {
 	return function(E)
 	{
-		switch (E.keyCode)
-		{
-			case 90: // z
-				Buttons[ButtonIndex.A] = State;
-				return;
+		if (!(E.keyCode in ButtonKeyCodes)) return;
 
-			case 88: // x
-				Buttons[ButtonIndex.B] = State;
-				return;
-
-			case 32: // space
-				Buttons[ButtonIndex.Select] = State;
-				return;
-
-			case 13: // enter
-				Buttons[ButtonIndex.Start] = State;
-				return;
-
-			case 38: // up
-				Buttons[ButtonIndex.Up] = State;
-				return;
-
-			case 40: // down
-				Buttons[ButtonIndex.Down] = State;
-				return;
-
-			case 37: // left
-				Buttons[ButtonIndex.Left] = State;
-				return;
-
-			case 39: // right
-				Buttons[ButtonIndex.Right] = State;
-				return;
-		}
+		E.stopPropagation();
+		E.preventDefault();
+		ButtonState[ButtonKeyCodes[E.keyCode]] = State;
 	};
 }
 </script>

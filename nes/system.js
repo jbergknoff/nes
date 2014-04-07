@@ -16,6 +16,7 @@ NES.System = function(Callbacks)
 	var PollInput = (Callbacks || {}).PollInput;
 
 	var CurrentInterrupt = NES.InterruptType.None;
+	var AdditionalCycles = 0; // For DMA, interrupt, etc.
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 	Self.LoadCartridge = function(ROMData)
@@ -84,12 +85,14 @@ NES.System = function(Callbacks)
 	{
 		var CPUCycles = CPU.Step();
 
-		PPUCycleCounter += CPUCycles * NES.CyclesPerCPUCycle;
+		PPUCycleCounter += CPUCycles * NES.CyclesPerCPUCycle + AdditionalCycles;
 		while (PPUCycleCounter > NES.CyclesPerPixel)
 		{
 			PPU.Tick();
 			PPUCycleCounter -= NES.CyclesPerPixel;
 		}
+
+		AdditionalCycles = 0;
 
 		if (CurrentInterrupt != NES.InterruptType.None)
 		{
@@ -140,7 +143,7 @@ NES.System = function(Callbacks)
 			{
 				var Start = (Value & 7) * 0x100;
 				PPU.DMA(RAM.subarray(Start, Start + 0x100));
-				// TODO: cycles for DMA
+				AdditionalCycles += 513 * NES.CyclesPerCPUCycle;
 			}
 			else
 				PPU.WriteRegister(Address, Value);
@@ -177,7 +180,7 @@ NES.System = function(Callbacks)
 		{
 			case NES.InterruptType.NMI:
 				CPU.PrepareInterrupt((ReadByte(0xFFFB) << 8) | ReadByte(0xFFFA));
-				//AdditionalCycles += 7 * Constants.CyclesPerCPUCycle[Region];
+				AdditionalCycles += 7 * NES.CyclesPerCPUCycle;
 				break;
 
 			case NES.InterruptType.IRQBRK:
