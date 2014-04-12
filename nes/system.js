@@ -38,7 +38,6 @@ NES.System = function(Callbacks)
 				"ReadCHR": Cartridge.Mapper().ReadCHR,
 				"WriteCHR": function() { throw "can't write to CHR"; },
 				"RaiseInterrupt": RaiseInterrupt,
-				//"DrawScreen": function(a) { console.log(a); throw "can't draw the screen yet"; }
 				"DrawScreen": function(Screen, FrameCounter)
 				{
 					var ID = DC.createImageData(256, 240);
@@ -57,24 +56,7 @@ NES.System = function(Callbacks)
 			}
 		);
 
-		/*
-		async.forever
-		(
-			function(CB)
-			{
-				CPU.Step();
-				PPU.Tick();
-				PPU.Tick();
-				PPU.Tick();
-				if (CurrentInterrupt != NES.InterruptType.None)
-				{
-					console.log("handling interrupt " + CurrentInterrupt);
-					HandleInterrupt();
-				}
-
-				setTimeout(function() { CB(); }, 0);
-			}
-		);*/
+		PPU.SetMirroring(Cartridge.Mirroring());
 	}
 
 	Self.Disassemble = function() { return CPU.Disassemble(); };

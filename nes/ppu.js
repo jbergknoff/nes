@@ -420,6 +420,11 @@ NES.PPU = function(Callbacks)
 			SpriteMemory[(SpriteAddress + i) & 0xFF] = SourceData[i];
 	}
 
+	this.SetMirroring = function(NewMirroring)
+	{
+		Mirroring = NewMirroring;
+	}
+
 	function PrepareSprites()
 	{
 		var ScreenX, ScreenY, TileNumber, Attributes;
