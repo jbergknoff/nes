@@ -8,6 +8,7 @@
 	<script src="./nes/system.js"></script>
 	<script src="./nes/cpu.js"></script>
 	<script src="./nes/ppu.js"></script>
+	<script src="./nes/apu.js"></script>
 	<script src="./nes/cartridge.js"></script>
 	<script src="./nes/mapper.js"></script>
 </head>
@@ -139,7 +140,7 @@ function DebuggerModel()
 			function() { return Self.Mode == "RUN"; },
 			function(CB)
 			{
-				for (var i = 0; i < 5000; i++)
+				for (var i = 0; i < 100000; i++)
 				{
 					var NewPC = System().Step();
 					//Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);

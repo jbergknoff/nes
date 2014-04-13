@@ -12,6 +12,7 @@ NES.System = function(Callbacks)
 	var RAM = new Uint8Array(0x800);
 	var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });
 	var PPU;
+	var APU;
 	var Cartridge;
 	var PollInput = (Callbacks || {}).PollInput;
 
@@ -57,6 +58,8 @@ NES.System = function(Callbacks)
 		);
 
 		PPU.SetMirroring(Cartridge.Mirroring());
+
+		APU = new NES.APU({ "ReadByte": ReadByte, "RaiseInterrupt": RaiseInterrupt });
 	}
 
 	Self.Disassemble = function() { return CPU.Disassemble(); };
