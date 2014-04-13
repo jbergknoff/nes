@@ -1,0 +1,17 @@
+<script type="text/javascript">
+var Context = new AudioContext();
+// A quarter second's worth of audio
+// createBuffer(number of channels, number of samples, sample rate)
+var MyBuffer = Context.createBuffer(1, 44100 / 4, 44100);
+var Data = MyBuffer.getChannelData(0);
+
+// (44100 samples/sec) / (200 samples/cycle) = 220.5 cycles/sec = 220.5 Hz
+// Populate a 220.5 Hz square wave.
+for (var i = 0; i < Data.length; i++)
+	Data[i] = ((~~(i / 100) % 2) == 0) ? 1 : -1;
+
+var Source = Context.createBufferSource();
+Source.buffer = MyBuffer;
+Source.connect(Context.destination);
+Source.start(0);
+</script>
