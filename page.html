@@ -125,6 +125,7 @@ function DebuggerModel()
 
 	Self.Step = function()
 	{
+		Self.Mode = "STEP";
 		System().Step();
 		Self.CPUDetails(System().CPUDetails());
 		Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
@@ -135,31 +136,20 @@ function DebuggerModel()
 		var Breakpoint = parseInt(Self.Breakpoint(), 16);
 		Self.Mode = "RUN";
 
-		async.whilst
-		(
-			function() { return Self.Mode == "RUN"; },
-			function(CB)
-			{
-				for (var i = 0; i < 100000; i++)
-				{
-					var NewPC = System().Step();
-					//Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
-					if (NewPC == Breakpoint)
-					{
-						Self.Mode = "STEP";
-						break;
-					}
-				}
-
-				setTimeout(CB, 0);
-			},
-			function()
-			{
-				Self.Mode = "STEP";
-				Self.CPUDetails(System().CPUDetails());
-			}
-		);
+		requestAnimationFrame(RunABit);
 	};
+
+	function RunABit()
+	{
+		if (Self.Mode !== "RUN")
+		{
+			Self.CPUDetails(System().CPUDetails());
+			return;
+		}
+
+		System().Run();
+		requestAnimationFrame(RunABit);
+	}
 
 	Self.Pause = function()
 	{

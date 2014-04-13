@@ -106,9 +106,8 @@ NES.System = function(Callbacks)
 				//
 				// this doesn't belong here
 				//
-				// createBuffer(number of channels, number of samples, sample rate)
 				var MyBuffer = MyAudioContext.createBuffer(1, 735, 44100);
-				var Data = MyBuffer.getChannelData(0).set(AudioBuffer);
+				MyBuffer.getChannelData(0).set(AudioBuffer);
 
 				var Source = MyAudioContext.createBufferSource();
 				Source.connect(MyAudioContext.destination);
@@ -119,6 +118,7 @@ NES.System = function(Callbacks)
 				//
 
 				AudioBufferIndex = 0;
+				Running = false;
 			}
 
 			AudioSampleCycleCounter -= NES.CyclesPerAudioSample;
@@ -131,6 +131,16 @@ NES.System = function(Callbacks)
 
 		return CPU.PC();
 	};
+
+	var Running = false;
+	Self.Run = function()
+	{
+		Running = true;
+		while (Running)
+		{
+			Self.Step();
+		}
+	}
 
 	Self.MemoryDump = function(Start, Length)
 	{
