@@ -27,9 +27,9 @@ NES.APU = function(Callbacks)
 	var PulseLookup = [ 0, 3, 6, 9, 12, 14, 17, 19, 22, 25, 27, 29, 32, 34, 36, 38, 41, 43, 45, 47, 49, 51, 53, 55, 56, 58, 60, 62, 63, 65, 67 ];
 	var OtherLookup = [ 0, 2, 3, 5, 7, 8, 10, 11, 13, 14, 16, 18, 19, 21, 22, 24, 25, 27, 28, 29, 31, 32, 34, 35, 37, 38, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56, 58, 59, 60, 61, 62, 64, 65, 66, 67, 68, 70, 71, 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 95, 96, 97, 98, 99, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 114, 115, 116, 117, 118, 119, 120, 121, 121, 122, 123, 124, 125, 126, 126, 127, 128, 129, 130, 130, 131, 132, 133, 134, 134, 135, 136, 137, 137, 138, 139, 140, 141, 141, 142, 143, 143, 144, 145, 146, 146, 147, 148, 149, 149, 150, 151, 151, 152, 153, 153, 154, 155, 155, 156, 157, 157, 158, 159, 159, 160, 161, 161, 162, 163, 163, 164, 164, 165, 166, 166, 167, 168, 168, 169, 169, 170, 171, 171, 172, 172, 173, 174, 174, 175, 175, 176, 176, 177, 178, 178, 179, 179, 180, 180, 181, 181, 182, 183, 183, 184, 184, 185, 185, 186, 186, 187, 187, 188 ];
 
-	function Output()
+	Self.Output = function()
 	{
-		return PulseLookup[Square1.Output + Square2.Output] + OtherLookup[DMC.Output + 2 * Noise.Output + 3 * Triangle.Output];
+		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 2 * Noise.Output() + 3 * Triangle.Output()];
 	}
 
 	// Tick() is called every other CPU cycle, because, best as I can tell, every APU component ignores every other
@@ -48,10 +48,10 @@ NES.APU = function(Callbacks)
 		{
 			if (SequencerMode == 4)
 			{
-				Square1.EnvelopeTick();
-				Square2.EnvelopeTick();
+				Square1.Envelope.EnvelopeTick();
+				Square2.Envelope.EnvelopeTick();
 				Triangle.LinearCounterTick();
-				Noise.EnvelopeTick();
+				Noise.Envelope.EnvelopeTick();
 
 				switch (SequencerIndex)
 				{
@@ -79,27 +79,27 @@ NES.APU = function(Callbacks)
 			}
 			else if (SequencerMode == 5 && SequencerIndex < 4)
 			{
-				Square1.EnvelopeTick();
-				Square2.EnvelopeTick();
+				Square1.Envelope.EnvelopeTick();
+				Square2.Envelope.EnvelopeTick();
 				Triangle.LinearCounterTick();
-				Noise.EnvelopeTick();
+				Noise.Envelope.EnvelopeTick();
 
 				switch (SequencerIndex)
 				{
 					case 0:
-						Square1.LengthCounterTick();
-						Square2.LengthCounterTick();
+						Square1.LengthCounter.LengthCounterTick();
+						Square2.LengthCounter.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounterTick();
+						Noise.LengthCounter.LengthCounterTick();
 						break;
 
 					case 2:
-						Square1.LengthCounterTick();
-						Square2.LengthCounterTick();
+						Square1.LengthCounter.LengthCounterTick();
+						Square2.LengthCounter.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounterTick();
+						Noise.LengthCounter.LengthCounterTick();
 						break;
 				}
 			}
@@ -129,10 +129,10 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4015:
-				if ((Value & 0x01) == 0) Square1.Disable(); else Square1.Enable();
-				if ((Value & 0x02) == 0) Square2.Disable(); else Square2.Enable();
-				if ((Value & 0x04) == 0) Triangle.Disable(); else Triangle.Enable();
-				if ((Value & 0x08) == 0) Noise.Disable(); else Noise.Enable();
+				if ((Value & 0x01) == 0) Square1.LengthCounter.Disable(); else Square1.LengthCounter.Enable();
+				if ((Value & 0x02) == 0) Square2.LengthCounter.Disable(); else Square2.LengthCounter.Enable();
+				if ((Value & 0x04) == 0) Triangle.LengthCounter.Disable(); else Triangle.LengthCounter.Enable();
+				if ((Value & 0x08) == 0) Noise.LengthCounter.Disable(); else Noise.LengthCounter.Enable();
 				if ((Value & 0x10) == 0) DMC.ClearBytesRemaining(); else if (!DMC.NonzeroBytesRemaining()) DMC.RestartSample();
 				DMC.ClearInterrupt();
 
@@ -141,7 +141,7 @@ NES.APU = function(Callbacks)
 			// Square 1
 			case 0x4000:
 				Square1.SetDutyCycle(Value);
-				Square1.SetEnvelope(Value);
+				Square1.Envelope.SetEnvelope(Value);
 				break;
 
 			case 0x4001:
@@ -149,19 +149,19 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4002:
-				Square1.SetPeriodLow(Value);
+				Square1.LengthCounter.SetPeriodLow(Value);
 				break;
 
 			case 0x4003:
-				Square1.SetPeriodHigh(Value);
-				Square1.ReloadLengthCounter(Value);
-				Square1.RestartEnvelope();
+				Square1.LengthCounter.SetPeriodHigh(Value);
+				Square1.LengthCounter.ReloadLengthCounter(Value);
+				Square1.Envelope.RestartEnvelope();
 				break;
 
 			// Square 2
 			case 0x4004:
 				Square2.SetDutyCycle(Value);
-				Square2.SetEnvelope(Value);
+				Square2.Envelope.SetEnvelope(Value);
 				break;
 
 			case 0x4005:
@@ -169,35 +169,35 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4006:
-				Square2.SetPeriodLow(Value);
+				Square2.LengthCounter.SetPeriodLow(Value);
 				break;
 
 			case 0x4007:
-				Square2.SetPeriodHigh(Value);
-				Square2.ReloadLengthCounter(Value);
-				Square2.RestartEnvelope();
+				Square2.LengthCounter.SetPeriodHigh(Value);
+				Square2.LengthCounter.ReloadLengthCounter(Value);
+				Square2.Envelope.RestartEnvelope();
 				break;
 
 			// Triangle
 			case 0x4008:
-				if ((Value & 0x80) != 0) Triangle.HaltLengthCounter();
-				else Triangle.ResumeLengthCounter();
+				if ((Value & 0x80) != 0) Triangle.LengthCounter.HaltLengthCounter();
+				else Triangle.LengthCounter.ResumeLengthCounter();
 				Triangle.SetLinearCounterReload(Value);
 				break;
 
 			case 0x400A:
-				Triangle.SetPeriodLow(Value);
+				Triangle.LengthCounter.SetPeriodLow(Value);
 				break;
 
 			case 0x400B:
-				Triangle.SetPeriodHigh(Value);
-				Triangle.ReloadLengthCounter(Value);
+				Triangle.LengthCounter.SetPeriodHigh(Value);
+				Triangle.LengthCounter.ReloadLengthCounter(Value);
 				Triangle.HaltLinearCounter();
 				break;
 
 			// Noise
 			case 0x400C:
-				Noise.SetEnvelope(Value);
+				Noise.Envelope.SetEnvelope(Value);
 				break;
 
 			case 0x400E:
@@ -205,7 +205,7 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x400F:
-				Noise.ReloadLengthCounter(Value);
+				Noise.LengthCounter.ReloadLengthCounter(Value);
 				break;
 
 			// DMC
@@ -283,7 +283,7 @@ NES.APU.LengthCounterChannel = function()
 	Self.SetPeriodHigh = function(P)
 	{
 		Self.Period &= 0xFF;
-		SelfPeriod |= ((P & 7) << 8);
+		Self.Period |= ((P & 7) << 8);
 		// apu_ref.txt, line 418.
 		Self.PeriodCounter = -1;
 		Self.WaveFormCounter = 0;
@@ -354,7 +354,9 @@ NES.APU.SquareWave = function()
 {
 	var Self = this;
 	var Envelope = new NES.APU.EnvelopeChannel();
+	Self.Envelope = Envelope;
 	var LengthCounter = Envelope.LengthCounter;
+	Self.LengthCounter = LengthCounter;
 
 	var DutyCycle = null;
 	var DutyCycleTypes =
@@ -432,11 +434,11 @@ NES.APU.SquareWave = function()
 			var NewPeriod;
 
 			if (SweepPositive)
-				NewPeriod = Period + Offset;
+				NewPeriod = LengthCounter.Period + Offset;
 			else
 				NewPeriod = LengthCounter.Period - Offset - (Channel1 ? 1 : 0);
 
-			if (Period < 8 || NewPeriod > 0x07FF)
+			if (LengthCounter.Period < 8 || NewPeriod > 0x07FF)
 				SweepSilence = true;
 			else
 			{
@@ -460,6 +462,7 @@ NES.APU.TriangleWave = function()
 {
 	var Self = this;
 	var LengthCounter = new NES.APU.LengthCounterChannel();
+	Self.LengthCounter = LengthCounter;
 
 	var Output;
 	var LinearCounterReloadValue = 0;
@@ -514,12 +517,16 @@ NES.APU.NoiseChannel = function()
 {
 	var Self = this;
 	var Envelope = new NES.APU.EnvelopeChannel();
+	Self.Envelope = Envelope;
 	var LengthCounter = Envelope.LengthCounter;
+	Self.LengthCounter = LengthCounter;
 
 	var Output;
 	var Periods = [ 0x004, 0x008, 0x010, 0x020, 0x040, 0x060, 0x080, 0x0A0, 0x0CA, 0x0FE, 0x17C, 0x1FC, 0x2FA, 0x3F8, 0x7F2, 0xFE4 ];
 	var ShiftRegister;
 	var Mode;
+
+	Self.Output = function() { return Output; };
 
 	Self.Tick = function()
 	{
@@ -534,7 +541,7 @@ NES.APU.NoiseChannel = function()
 			EORBit = (EORBit ^ ShiftRegister) & 1;
 			ShiftRegister >>= 1;
 			ShiftRegister |= (EORBit << 14);
-			Output = (ShiftRegister & 1) == 0 ? EnvelopeVolume : 0;
+			Output = (ShiftRegister & 1) == 0 ? Envelope.EnvelopeVolume : 0;
 		}
 	}
 
@@ -552,7 +559,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 {
 	var Self = this;
 
-	var Output;
+	var Output = 0;
 	// NTSC. See http://wiki.nesdev.com/w/index.php/APU_DMC.
 	var Periods = [ 0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6, 0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036 ];
 	// "_Interrupt" is the interrupt flag, set at certain intervals and forces Tick() to raise an interrupt until the flag is shut off.

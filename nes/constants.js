@@ -34,7 +34,9 @@ NES.ScanlineVBlankBegin = 241;
 // Cycles are "master cycles" as run by the PPU processor.
 NES.CyclesPerPixel = 4; // { 4, 5 };
 NES.CyclesPerCPUCycle = 12; // { 12, 16 };
+NES.CyclesPerAPUCycle = 24;
 NES.CPUCyclesPerSecond = 1789773; // { 1789773, 1662607 };
+NES.CyclesPerAudioSample = 487; // NTSC. This is in master cycles, i.e. ~21 MHz / 44100 Hz.
 NES.TotalScanlineCount = 262; // { 262, 312 };
 
 NES.Colors =
