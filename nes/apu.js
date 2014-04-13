@@ -29,6 +29,7 @@ NES.APU = function(Callbacks)
 
 	Self.Output = function()
 	{
+		//return 0;
 		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 2 * Noise.Output() + 3 * Triangle.Output()];
 	}
 
@@ -56,19 +57,19 @@ NES.APU = function(Callbacks)
 				switch (SequencerIndex)
 				{
 					case 1:
-						Square1.LengthCounterTick();
-						Square2.LengthCounterTick();
+						Square1.LengthCounter.LengthCounterTick();
+						Square2.LengthCounter.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounterTick();
+						Noise.LengthCounter.LengthCounterTick();
 						break;
 
 					case 3:
-						Square1.LengthCounterTick();
-						Square2.LengthCounterTick();
+						Square1.LengthCounter.LengthCounterTick();
+						Square2.LengthCounter.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounterTick();
+						Noise.LengthCounter.LengthCounterTick();
 						if (!DisableAPUIRQ)
 						{
 							throw "APU sequencer wants to raise IRQ.";
@@ -236,7 +237,7 @@ NES.APU = function(Callbacks)
 		if (Address != 0x4015)
 			throw "Illegal call to APU::ReadRegister on $" + AbsoluteAddress.toString(16);
 
-		var Status = ((DMC.Interrupt ? 0x80 : 0) | (FrameInterrupt ? 0x40 : 0) | (DMC.NonzeroBytesRemaining() ? 0x10 : 0) | (Noise.NonzeroCounter() ? 0x08 : 0) | (Triangle.NonzeroCounter() ? 0x04 : 0) | (Square2.NonzeroCounter() ? 0x02 : 0) | (Square1.NonzeroCounter() ? 0x01 : 0)) & 0xFF;
+		var Status = ((DMC.Interrupt() ? 0x80 : 0) | (FrameInterrupt ? 0x40 : 0) | (DMC.NonzeroBytesRemaining() ? 0x10 : 0) | (Noise.LengthCounter.NonzeroCounter() ? 0x08 : 0) | (Triangle.LengthCounter.NonzeroCounter() ? 0x04 : 0) | (Square2.LengthCounter.NonzeroCounter() ? 0x02 : 0) | (Square1.LengthCounter.NonzeroCounter() ? 0x01 : 0)) & 0xFF;
 		FrameInterrupt = false;
 		return Status;
 	}
@@ -563,7 +564,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 	// NTSC. See http://wiki.nesdev.com/w/index.php/APU_DMC.
 	var Periods = [ 0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6, 0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036 ];
 	// "_Interrupt" is the interrupt flag, set at certain intervals and forces Tick() to raise an interrupt until the flag is shut off.
-	var IRQEnabled, Loop, Silence, _Interrupt;
+	var IRQEnabled, Loop, Silence, Interrupt;
 	var TimerPeriod, TimerPeriodCounter, OutputBitCounter;
 	var SampleAddress, SampleAddressReloadValue, BytesRemaining, BytesRemainingReloadValue;
 	var SampleBuffer, ShiftRegister;
@@ -573,7 +574,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 
 	Self.Tick = function()
 	{
-		if (_Interrupt) RaiseInterrupt(NES.InterruptType.IRQBRK);
+		if (Interrupt) RaiseInterrupt(NES.InterruptType.IRQBRK);
 
 		// Clock the timer.
 		++TimerPeriodCounter;
@@ -632,7 +633,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 			}
 			else if (IRQEnabled)
 			{
-				_Interrupt = true;
+				Interrupt = true;
 			}
 		}
 	}
@@ -641,7 +642,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 	Self.Initialize = function(Value)
 	{
 		IRQEnabled = (Value & 0x80) != 0;
-		if (!IRQEnabled) _Interrupt = false;
+		if (!IRQEnabled) Interrupt = false;
 		Loop = (Value & 0x40) != 0;
 		TimerPeriod = Periods[Value & 0x0F];
 		TimerPeriodCounter = 0;
@@ -682,5 +683,5 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 
 	Self.NonzeroBytesRemaining = function() { return BytesRemaining > 0; }
 	Self.Interrupt = function() { return Interrupt; }
-	Self.ClearInterrupt = function() { _Interrupt = false; }
+	Self.ClearInterrupt = function() { Interrupt = false; }
 }

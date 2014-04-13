@@ -20,6 +20,12 @@ NES.System = function(Callbacks)
 	var AdditionalCycles = 0; // For DMA, interrupt, etc.
 
 	var MyAudioContext = new AudioContext();
+	var ScriptProcessor = MyAudioContext.createScriptProcessor(1024, 1, 1);
+	ScriptProcessor.connect(MyAudioContext.destination);
+	ScriptProcessor.onaudioprocess = function(E)
+	{
+		E.outputBuffer.getChannelData(0).set(AudioBuffer || []);
+	}
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 	Self.LoadCartridge = function(ROMData)
@@ -99,13 +105,14 @@ NES.System = function(Callbacks)
 		AudioSampleCycleCounter += CyclesToRun;
 		while (AudioSampleCycleCounter >= NES.CyclesPerAudioSample)
 		{
-			AudioBuffer[AudioBufferIndex++] = (APU.Output() / 255) - 0.5;
+			AudioBuffer[AudioBufferIndex++] = (APU.Output() / 128) - 1;
 
 			if (AudioBufferIndex == AudioBuffer.length)
 			{
 				//
 				// this doesn't belong here
 				//
+				/*
 				var MyBuffer = MyAudioContext.createBuffer(1, 735, 44100);
 				MyBuffer.getChannelData(0).set(AudioBuffer);
 
@@ -113,6 +120,7 @@ NES.System = function(Callbacks)
 				Source.connect(MyAudioContext.destination);
 				Source.buffer = MyBuffer;
 				Source.start(0);
+				*/
 				//
 				// end
 				//
