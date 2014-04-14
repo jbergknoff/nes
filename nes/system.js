@@ -20,11 +20,11 @@ NES.System = function(Callbacks)
 	var AdditionalCycles = 0; // For DMA, interrupt, etc.
 
 	var MyAudioContext = new AudioContext();
-	var ScriptProcessor = MyAudioContext.createScriptProcessor(1024, 1, 1);
+	var ScriptProcessor = MyAudioContext.createScriptProcessor(2048, 0, 1);
 	ScriptProcessor.connect(MyAudioContext.destination);
 	ScriptProcessor.onaudioprocess = function(E)
 	{
-		E.outputBuffer.getChannelData(0).set(AudioBuffer || []);
+		E.outputBuffer.getChannelData(0).set(AudioBuffer.splice(0, 2048));
 	}
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
@@ -78,7 +78,7 @@ NES.System = function(Callbacks)
 	var AudioSampleCycleCounter = 0;
 
 	// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
-	var AudioBuffer = new Float32Array(735);
+	var AudioBuffer = [];
 	var AudioBufferIndex = 0;
 	Self.Step = function()
 	{
@@ -105,9 +105,9 @@ NES.System = function(Callbacks)
 		AudioSampleCycleCounter += CyclesToRun;
 		while (AudioSampleCycleCounter >= NES.CyclesPerAudioSample)
 		{
-			AudioBuffer[AudioBufferIndex++] = (APU.Output() / 128) - 1;
+			AudioBuffer.push((APU.Output() / 128) - 1);
 
-			if (AudioBufferIndex == AudioBuffer.length)
+			if (++AudioBufferIndex == 735)
 			{
 				//
 				// this doesn't belong here
