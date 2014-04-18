@@ -61,7 +61,7 @@ NES.System = function(Callbacks)
 		(
 			{
 				"ReadCHR": Cartridge.Mapper().ReadCHR,
-				"WriteCHR": function() { throw "can't write to CHR"; },
+				"WriteCHR": Cartridge.Mapper().WriteCHR,
 				"RaiseInterrupt": RaiseInterrupt,
 				"DrawScreen": function(Screen, FrameCounter)
 				{
@@ -175,7 +175,16 @@ NES.System = function(Callbacks)
 			return 0;
 		}
 		else if (Address < 0x8000)
-			throw "SRAM read";
+		{
+			switch (Cartridge.MapperNumber)
+			{
+				case 1:
+					return Cartridge.Mapper().SRAM[Address & 0x1FFF];
+
+				default:
+					throw "Trying to read from $" + Address.ToString("X4") + ".";
+			}
+		}
 		else
 			return Cartridge.Mapper().ReadPRG(Address);
 	}
@@ -205,9 +214,20 @@ NES.System = function(Callbacks)
 			return;
 		}
 		else if (Address >= 0x6000 && Address < 0x8000)
-			throw "SRAM write";
+			Cartridge.Mapper().SRAM[Address & 0x1FFF] = Value;
 		else if (Address >= 0x8000)
-			throw "mapper register write";
+		{
+			Cartridge.Mapper().WriteRegister(Address, Value);
+
+			// Not all, but some writes to mapper registers require updating other components of the system.
+			// I don't think there is anything wrong with performing those updates on every mapper register write.
+			switch (Cartridge.MapperNumber)
+			{
+				case 1:
+					PPU.SetMirroring(Cartridge.Mapper().Mirroring);
+					break;
+			}
+		}
 		else
 			throw "Don't know how to write to 0x" + Address.toString(16);
 	}

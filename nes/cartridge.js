@@ -28,6 +28,8 @@ var NES = NES || {};
 
 NES.Cartridge = function(ROMData)
 {
+	var Self = this;
+
 	var Valid = false;
 
 	var PRGPageCount = 0;
@@ -35,6 +37,7 @@ NES.Cartridge = function(ROMData)
 	var Mirroring = NES.MirroringType.Horizontal;
 	var SRAMEnabled = false;
 	var Mapper;
+	Self.MapperNumber = 0;
 
 	Validate();
 
@@ -75,17 +78,17 @@ NES.Cartridge = function(ROMData)
 			CHRPages.push(ROMData.subarray(Start, Start + NES.CHRPageSize));
 		}
 
-		var MapperNumber = ((ROMData[6] >> 4) & 0x0F) | (ROMData[7] & 0xF0);
-		Mapper = new NES.Mapper(MapperNumber, PRGPages, CHRPages);
+		Self.MapperNumber = ((ROMData[6] >> 4) & 0x0F) | (ROMData[7] & 0xF0);
+		Mapper = new NES.Mapper[Self.MapperNumber](PRGPages, CHRPages);
 
 		Valid = true;
 	}
 
 	// Accessors
-	this.IsValid = function() { return Valid; };
-	this.PRGPageCount = function() { return PRGPageCount; };
-	this.CHRPageCount = function() { return CHRPageCount; };
-	this.Mirroring = function() { return Mirroring; };
-	this.SRAMEnabled = function() { return SRAMEnabled; };
-	this.Mapper = function() { return Mapper; };
+	Self.IsValid = function() { return Valid; };
+	Self.PRGPageCount = function() { return PRGPageCount; };
+	Self.CHRPageCount = function() { return CHRPageCount; };
+	Self.Mirroring = function() { return Mirroring; };
+	Self.SRAMEnabled = function() { return SRAMEnabled; };
+	Self.Mapper = function() { return Mapper; };
 }
