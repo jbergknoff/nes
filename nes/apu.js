@@ -29,8 +29,7 @@ NES.APU = function(Callbacks)
 
 	Self.Output = function()
 	{
-		//return 0;
-		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 0 * 2 * Noise.Output() + 3 * Triangle.Output()];
+		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 2 * Noise.Output() + 3 * Triangle.Output()];
 	}
 
 	// Tick() is called every other CPU cycle, because, best as I can tell, every APU component ignores every other
@@ -522,12 +521,17 @@ NES.APU.NoiseChannel = function()
 	var LengthCounter = Envelope.LengthCounter;
 	Self.LengthCounter = LengthCounter;
 
-	var Output;
+	var Output = 0;
 	var Periods = [ 0x004, 0x008, 0x010, 0x020, 0x040, 0x060, 0x080, 0x0A0, 0x0CA, 0x0FE, 0x17C, 0x1FC, 0x2FA, 0x3F8, 0x7F2, 0xFE4 ];
 	var ShiftRegister;
 	var Mode;
 
-	Self.Output = function() { return Output; };
+	Self.Output = function()
+	{
+		var Enabled = LengthCounter.Enabled;
+		var Counter = LengthCounter.LengthCounter;
+		return (Enabled && Counter) ? Output : 0;
+	}
 
 	Self.Tick = function()
 	{
