@@ -20,12 +20,28 @@ NES.System = function(Callbacks)
 	var AdditionalCycles = 0; // For DMA, interrupt, etc.
 
 	var MyAudioContext = new AudioContext();
-	var ScriptProcessor = MyAudioContext.createScriptProcessor(2048, 0, 1);
+	var AudioBuffer = [];
+	///*
+	//
+	// this doesn't belong here
+	//
+	var ScriptProcessor = MyAudioContext.createScriptProcessor(0, 0, 1);
 	ScriptProcessor.connect(MyAudioContext.destination);
-	ScriptProcessor.onaudioprocess = function(E)
+	// Putting the callback on the global window object so that it doesn't get
+	// garbage collected.
+	// http://lists.w3.org/Archives/Public/public-audio/2013JanMar/0304.html
+	window.AudioCallback = function(E)
 	{
-		E.outputBuffer.getChannelData(0).set(AudioBuffer.splice(0, 2048));
+		var OutputBuffer = E.outputBuffer;
+		//console.log("looking for %d bytes, audio buffer has length %d", OutputBuffer.length, AudioBuffer.length);
+		OutputBuffer.getChannelData(0).set(AudioBuffer.splice(0, OutputBuffer.length));
 	}
+
+	ScriptProcessor.onaudioprocess = window.AudioCallback;
+	//
+	// this doesn't belong here
+	//
+	//*/
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 	Self.LoadCartridge = function(ROMData)
@@ -77,7 +93,6 @@ NES.System = function(Callbacks)
 	var APUCycleCounter = 0;
 	var AudioSampleCycleCounter = 0;
 
-	// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
 	var AudioBuffer = [];
 	var AudioBufferIndex = 0;
 	Self.Step = function()
@@ -107,24 +122,9 @@ NES.System = function(Callbacks)
 		{
 			AudioBuffer.push((APU.Output() / 128) - 1);
 
+			// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
 			if (++AudioBufferIndex == 735)
 			{
-				//
-				// this doesn't belong here
-				//
-				/*
-				var MyBuffer = MyAudioContext.createBuffer(1, 735, 44100);
-				MyBuffer.getChannelData(0).set(AudioBuffer);
-
-				var Source = MyAudioContext.createBufferSource();
-				Source.connect(MyAudioContext.destination);
-				Source.buffer = MyBuffer;
-				Source.start(0);
-				*/
-				//
-				// end
-				//
-
 				AudioBufferIndex = 0;
 				Running = false;
 			}

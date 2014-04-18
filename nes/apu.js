@@ -30,7 +30,7 @@ NES.APU = function(Callbacks)
 	Self.Output = function()
 	{
 		//return 0;
-		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 2 * Noise.Output() + 3 * Triangle.Output()];
+		return PulseLookup[Square1.Output() + Square2.Output()] + OtherLookup[DMC.Output() + 0 * 2 * Noise.Output() + 3 * Triangle.Output()];
 	}
 
 	// Tick() is called every other CPU cycle, because, best as I can tell, every APU component ignores every other
