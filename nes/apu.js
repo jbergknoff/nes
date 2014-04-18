@@ -48,27 +48,27 @@ NES.APU = function(Callbacks)
 		{
 			if (SequencerMode == 4)
 			{
-				Square1.Envelope.EnvelopeTick();
-				Square2.Envelope.EnvelopeTick();
+				Square1.EnvelopeTick();
+				Square2.EnvelopeTick();
 				Triangle.LinearCounterTick();
-				Noise.Envelope.EnvelopeTick();
+				Noise.EnvelopeTick();
 
 				switch (SequencerIndex)
 				{
 					case 1:
-						Square1.LengthCounter.LengthCounterTick();
-						Square2.LengthCounter.LengthCounterTick();
+						Square1.LengthCounterTick();
+						Square2.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounter.LengthCounterTick();
+						Noise.LengthCounterTick();
 						break;
 
 					case 3:
-						Square1.LengthCounter.LengthCounterTick();
-						Square2.LengthCounter.LengthCounterTick();
+						Square1.LengthCounterTick();
+						Square2.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounter.LengthCounterTick();
+						Noise.LengthCounterTick();
 						if (!DisableAPUIRQ)
 						{
 							throw "APU sequencer wants to raise IRQ.";
@@ -79,27 +79,27 @@ NES.APU = function(Callbacks)
 			}
 			else if (SequencerMode == 5 && SequencerIndex < 4)
 			{
-				Square1.Envelope.EnvelopeTick();
-				Square2.Envelope.EnvelopeTick();
+				Square1.EnvelopeTick();
+				Square2.EnvelopeTick();
 				Triangle.LinearCounterTick();
-				Noise.Envelope.EnvelopeTick();
+				Noise.EnvelopeTick();
 
 				switch (SequencerIndex)
 				{
 					case 0:
-						Square1.LengthCounter.LengthCounterTick();
-						Square2.LengthCounter.LengthCounterTick();
+						Square1.LengthCounterTick();
+						Square2.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounter.LengthCounterTick();
+						Noise.LengthCounterTick();
 						break;
 
 					case 2:
-						Square1.LengthCounter.LengthCounterTick();
-						Square2.LengthCounter.LengthCounterTick();
+						Square1.LengthCounterTick();
+						Square2.LengthCounterTick();
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
-						Noise.LengthCounter.LengthCounterTick();
+						Noise.LengthCounterTick();
 						break;
 				}
 			}
@@ -129,10 +129,10 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4015:
-				if ((Value & 0x01) == 0) Square1.LengthCounter.Disable(); else Square1.LengthCounter.Enable();
-				if ((Value & 0x02) == 0) Square2.LengthCounter.Disable(); else Square2.LengthCounter.Enable();
-				if ((Value & 0x04) == 0) Triangle.LengthCounter.Disable(); else Triangle.LengthCounter.Enable();
-				if ((Value & 0x08) == 0) Noise.LengthCounter.Disable(); else Noise.LengthCounter.Enable();
+				if ((Value & 0x01) == 0) Square1.Disable(); else Square1.Enable();
+				if ((Value & 0x02) == 0) Square2.Disable(); else Square2.Enable();
+				if ((Value & 0x04) == 0) Triangle.Disable(); else Triangle.Enable();
+				if ((Value & 0x08) == 0) Noise.Disable(); else Noise.Enable();
 				if ((Value & 0x10) == 0) DMC.ClearBytesRemaining(); else if (!DMC.NonzeroBytesRemaining()) DMC.RestartSample();
 				DMC.ClearInterrupt();
 
@@ -141,7 +141,7 @@ NES.APU = function(Callbacks)
 			// Square 1
 			case 0x4000:
 				Square1.SetDutyCycle(Value);
-				Square1.Envelope.SetEnvelope(Value);
+				Square1.SetEnvelope(Value);
 				break;
 
 			case 0x4001:
@@ -149,19 +149,19 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4002:
-				Square1.LengthCounter.SetPeriodLow(Value);
+				Square1.SetPeriodLow(Value);
 				break;
 
 			case 0x4003:
-				Square1.LengthCounter.SetPeriodHigh(Value);
-				Square1.LengthCounter.ReloadLengthCounter(Value);
-				Square1.Envelope.RestartEnvelope();
+				Square1.SetPeriodHigh(Value);
+				Square1.ReloadLengthCounter(Value);
+				Square1.RestartEnvelope();
 				break;
 
 			// Square 2
 			case 0x4004:
 				Square2.SetDutyCycle(Value);
-				Square2.Envelope.SetEnvelope(Value);
+				Square2.SetEnvelope(Value);
 				break;
 
 			case 0x4005:
@@ -169,35 +169,35 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x4006:
-				Square2.LengthCounter.SetPeriodLow(Value);
+				Square2.SetPeriodLow(Value);
 				break;
 
 			case 0x4007:
-				Square2.LengthCounter.SetPeriodHigh(Value);
-				Square2.LengthCounter.ReloadLengthCounter(Value);
-				Square2.Envelope.RestartEnvelope();
+				Square2.SetPeriodHigh(Value);
+				Square2.ReloadLengthCounter(Value);
+				Square2.RestartEnvelope();
 				break;
 
 			// Triangle
 			case 0x4008:
-				if ((Value & 0x80) != 0) Triangle.LengthCounter.HaltLengthCounter();
-				else Triangle.LengthCounter.ResumeLengthCounter();
+				if ((Value & 0x80) != 0) Triangle.HaltLengthCounter();
+				else Triangle.ResumeLengthCounter();
 				Triangle.SetLinearCounterReload(Value);
 				break;
 
 			case 0x400A:
-				Triangle.LengthCounter.SetPeriodLow(Value);
+				Triangle.SetPeriodLow(Value);
 				break;
 
 			case 0x400B:
-				Triangle.LengthCounter.SetPeriodHigh(Value);
-				Triangle.LengthCounter.ReloadLengthCounter(Value);
+				Triangle.SetPeriodHigh(Value);
+				Triangle.ReloadLengthCounter(Value);
 				Triangle.HaltLinearCounter();
 				break;
 
 			// Noise
 			case 0x400C:
-				Noise.Envelope.SetEnvelope(Value);
+				Noise.SetEnvelope(Value);
 				break;
 
 			case 0x400E:
@@ -205,7 +205,7 @@ NES.APU = function(Callbacks)
 				break;
 
 			case 0x400F:
-				Noise.LengthCounter.ReloadLengthCounter(Value);
+				Noise.ReloadLengthCounter(Value);
 				break;
 
 			// DMC
@@ -236,7 +236,7 @@ NES.APU = function(Callbacks)
 		if (Address != 0x4015)
 			throw "Illegal call to APU::ReadRegister on $" + AbsoluteAddress.toString(16);
 
-		var Status = ((DMC.Interrupt() ? 0x80 : 0) | (FrameInterrupt ? 0x40 : 0) | (DMC.NonzeroBytesRemaining() ? 0x10 : 0) | (Noise.LengthCounter.NonzeroCounter() ? 0x08 : 0) | (Triangle.LengthCounter.NonzeroCounter() ? 0x04 : 0) | (Square2.LengthCounter.NonzeroCounter() ? 0x02 : 0) | (Square1.LengthCounter.NonzeroCounter() ? 0x01 : 0)) & 0xFF;
+		var Status = ((DMC.Interrupt() ? 0x80 : 0) | (FrameInterrupt ? 0x40 : 0) | (DMC.NonzeroBytesRemaining() ? 0x10 : 0) | (Noise.NonzeroCounter() ? 0x08 : 0) | (Triangle.NonzeroCounter() ? 0x04 : 0) | (Square2.NonzeroCounter() ? 0x02 : 0) | (Square1.NonzeroCounter() ? 0x01 : 0)) & 0xFF;
 		FrameInterrupt = false;
 		return Status;
 	}
@@ -302,7 +302,8 @@ NES.APU.LengthCounterChannel = function()
 NES.APU.EnvelopeChannel = function()
 {
 	var Self = this;
-	Self.LengthCounter = new NES.APU.LengthCounterChannel();
+	NES.APU.LengthCounterChannel.apply(Self); // Inherit from LengthCounterChannel.
+
 	var Enveloped = false;
 	var EnvelopeLoop = false;
 	var EnvelopePeriod = 0;
@@ -337,8 +338,8 @@ NES.APU.EnvelopeChannel = function()
 		else
 			Self.EnvelopeVolume = Value & 0x0F;
 
-		if ((Value & 0x20) != 0) Self.LengthCounter.HaltLengthCounter();
-		else Self.LengthCounter.ResumeLengthCounter();
+		if ((Value & 0x20) != 0) Self.HaltLengthCounter();
+		else Self.ResumeLengthCounter();
 	}
 
 	// Invoked when register 3 ($4003, $4007, $400F) written to.
@@ -353,10 +354,7 @@ NES.APU.EnvelopeChannel = function()
 NES.APU.SquareWave = function()
 {
 	var Self = this;
-	var Envelope = new NES.APU.EnvelopeChannel();
-	Self.Envelope = Envelope;
-	var LengthCounter = Envelope.LengthCounter;
-	Self.LengthCounter = LengthCounter;
+	NES.APU.EnvelopeChannel.apply(Self); // Inherit from EnvelopeChannel.
 
 	var DutyCycle = null;
 	var DutyCycleTypes =
@@ -378,23 +376,21 @@ NES.APU.SquareWave = function()
 
 	Self.Output = function()
 	{
-		var Enabled = LengthCounter.Enabled;
-		var Counter = LengthCounter.LengthCounter;
-		return (Enabled && Counter != 0 && !SweepSilence) ? Output : 0;
+		return (Self.Enabled && Self.Counter != 0 && !SweepSilence) ? Output : 0;
 	}
 
 	// Called every APU clock.
 	Self.Tick = function()
 	{
-		++LengthCounter.PeriodCounter;
+		++Self.PeriodCounter;
 		// Once the timer period expires, go to the next step in the waveform.
-		if (LengthCounter.PeriodCounter == LengthCounter.Period)
+		if (Self.PeriodCounter == Self.Period)
 		{
-			LengthCounter.PeriodCounter = -1;
+			Self.PeriodCounter = -1;
 			if (DutyCycle != null)
 			{
-				Output = Self.Envelope.EnvelopeVolume * DutyCycle[LengthCounter.WaveFormCounter++];
-				LengthCounter.WaveFormCounter &= 7;
+				Output = Self.EnvelopeVolume * DutyCycle[Self.WaveFormCounter++];
+				Self.WaveFormCounter &= 7;
 			}
 		}
 	}
@@ -430,21 +426,21 @@ NES.APU.SquareWave = function()
 		if (SweepCounter == SweepPeriod)
 		{
 			SweepCounter = -1;
-			var Offset = LengthCounter.Period >> SweepShiftCount;
+			var Offset = Self.Period >> SweepShiftCount;
 			var NewPeriod;
 
 			if (SweepPositive)
-				NewPeriod = LengthCounter.Period + Offset;
+				NewPeriod = Self.Period + Offset;
 			else
-				NewPeriod = LengthCounter.Period - Offset - (Channel1 ? 1 : 0);
+				NewPeriod = Self.Period - Offset - (Channel1 ? 1 : 0);
 
-			if (LengthCounter.Period < 8 || NewPeriod > 0x07FF)
+			if (Self.Period < 8 || NewPeriod > 0x07FF)
 				SweepSilence = true;
 			else
 			{
 				SweepSilence = false;
-				LengthCounter.SetPeriodLow(NewPeriod & 0xFF);
-				LengthCounter.SetPeriodHigh(((NewPeriod & 0x07FF) >> 8) & 0xFF);
+				Self.SetPeriodLow(NewPeriod & 0xFF);
+				Self.SetPeriodHigh(((NewPeriod & 0x07FF) >> 8) & 0xFF);
 			}
 		}
 
@@ -461,8 +457,7 @@ NES.APU.SquareWave = function()
 NES.APU.TriangleWave = function()
 {
 	var Self = this;
-	var LengthCounter = new NES.APU.LengthCounterChannel();
-	Self.LengthCounter = LengthCounter;
+	NES.APU.LengthCounterChannel.apply(Self); // Inherit from LengthCounterChannel.
 
 	var Output;
 	var LinearCounterReloadValue = 0;
@@ -476,22 +471,20 @@ NES.APU.TriangleWave = function()
 
 	Self.Output = function()
 	{
-		var Enabled = LengthCounter.Enabled;
-		var Counter = LengthCounter.LengthCounter;
-		return (Enabled && Counter != 0 && LinearCounter != 0) ? Output : 0;
+		return (Self.Enabled && Self.Counter != 0 && LinearCounter != 0) ? Output : 0;
 	}
 
 	Self.Tick = function()
 	{
-		++LengthCounter.PeriodCounter;
+		++Self.PeriodCounter;
 		// Once the timer period expires, go to the next step in the waveform.
-		if (LengthCounter.PeriodCounter == LengthCounter.Period)
+		if (Self.PeriodCounter == Self.Period)
 		{
-			LengthCounter.PeriodCounter = -1;
-			if (LinearCounter != 0 && LengthCounter.LengthCounter != 0)
+			Self.PeriodCounter = -1;
+			if (LinearCounter != 0 && Self.LengthCounter != 0)
 			{
-				Output = TriangleWaveform[LengthCounter.WaveFormCounter++]; // TODO: volume, envelope, whatever.
-				LengthCounter.WaveFormCounter &= 0xF;
+				Output = TriangleWaveform[Self.WaveFormCounter++]; // TODO: volume, envelope, whatever.
+				Self.WaveFormCounter &= 0xF;
 			}
 		}
 	}
@@ -508,7 +501,7 @@ NES.APU.TriangleWave = function()
 			--LinearCounter;
 
 		// This is identical to the condition "control flag is clear", because they share bit $4008.7.
-		if (!LengthCounter.Halted)
+		if (!Self.Halted)
 			LinearCounterHalted = false;
 	}
 }
@@ -516,10 +509,7 @@ NES.APU.TriangleWave = function()
 NES.APU.NoiseChannel = function()
 {
 	var Self = this;
-	var Envelope = new NES.APU.EnvelopeChannel();
-	Self.Envelope = Envelope;
-	var LengthCounter = Envelope.LengthCounter;
-	Self.LengthCounter = LengthCounter;
+	NES.APU.EnvelopeChannel.apply(Self); // Inherit from EnvelopeChannel.
 
 	var Output = 0;
 	var Periods = [ 0x004, 0x008, 0x010, 0x020, 0x040, 0x060, 0x080, 0x0A0, 0x0CA, 0x0FE, 0x17C, 0x1FC, 0x2FA, 0x3F8, 0x7F2, 0xFE4 ];
@@ -528,33 +518,31 @@ NES.APU.NoiseChannel = function()
 
 	Self.Output = function()
 	{
-		var Enabled = LengthCounter.Enabled;
-		var Counter = LengthCounter.LengthCounter;
-		return (Enabled && Counter) ? Output : 0;
+		return (Self.Enabled && Self.Counter) ? Output : 0;
 	}
 
 	Self.Tick = function()
 	{
-		++LengthCounter.PeriodCounter;
+		++Self.PeriodCounter;
 		// Once the timer period expires, go to the next step in the waveform.
-		if (LengthCounter.PeriodCounter == LengthCounter.Period)
+		if (Self.PeriodCounter == Self.Period)
 		{
-			LengthCounter.PeriodCounter = -1;
+			Self.PeriodCounter = -1;
 			// Mode 0: exclusive or of pre-shifted bits 0 and 1.
 			// Mode 1: exclusive or of pre-shifted bits 0 and 6.
 			var EORBit = (Mode == 0 ? (ShiftRegister >> 1) : (ShiftRegister >> 6)) & 1;
 			EORBit = (EORBit ^ ShiftRegister) & 1;
 			ShiftRegister >>= 1;
 			ShiftRegister |= (EORBit << 14);
-			Output = (ShiftRegister & 1) == 0 ? Envelope.EnvelopeVolume : 0;
+			Output = (ShiftRegister & 1) == 0 ? Self.EnvelopeVolume : 0;
 		}
 	}
 
 	// Invoked when $400E is written to.
 	Self.Initialize = function(Value)
 	{
-		LengthCounter.Period = Periods[Value & 0x0F];
-		LengthCounter.PeriodCounter = -1; // TODO should this one start from 0?
+		Self.Period = Periods[Value & 0x0F];
+		Self.PeriodCounter = -1; // TODO should this one start from 0?
 		Mode = Value >> 7;
 		ShiftRegister = 1; // apu_ref.txt, line 532.
 	}
