@@ -148,7 +148,7 @@ NES.CPU = function(Callbacks)
 		// Fetch the next opcode.
 		var OpcodeIndex = ReadByte(PC);
 		CurrentOpcode = Opcodes[OpcodeIndex];
-		if (!CurrentOpcode) throw "Opcode $" + OpcodeIndex.ToString(16) + " not implemented.";
+		if (!CurrentOpcode) throw "Opcode $" + OpcodeIndex.toString(16) + " not implemented.";
 
 		Cycles = 0;
 		// Execute the addressing mode preparation.

@@ -79,6 +79,9 @@ NES.Cartridge = function(ROMData)
 		}
 
 		Self.MapperNumber = ((ROMData[6] >> 4) & 0x0F) | (ROMData[7] & 0xF0);
+		if (!NES.Mapper[Self.MapperNumber])
+			throw "Mapper #" + Self.MapperNumber + " not supported";
+
 		Mapper = new NES.Mapper[Self.MapperNumber](PRGPages, CHRPages);
 
 		Valid = true;
