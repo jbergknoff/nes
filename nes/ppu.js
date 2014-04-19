@@ -7,32 +7,41 @@ var NES = NES || {};
 //		DrawScreen: ?
 NES.PPU = function(Callbacks)
 {
+	var Self = this;
+
 	// Registers.
-	var ControlRegister1;	// $2000
-	var ControlRegister2;	// $2001
-	var InVBlank;			// $2002 bit 7
-	var SpriteZeroHit;		// $2002 bit 6
-	var SpriteOverflow;		// $2002 bit 5
-	var SpriteAddress;		// $2003
-	var NMIInhibit;			// Reading $2002 one PPU clock before reads it as clear and never sets the flag or generates NMI for that frame.
-							// Ref: http://wiki.nesdev.com/w/index.php/PPU_frame_timing.
+	var ControlRegister1 = 0; // $2000
+	var ControlRegister2 = 0; // $2001
+	var InVBlank = false; // $2002 bit 7
+	var SpriteZeroHit = false; // $2002 bit 6
+	var SpriteOverflow = false; // $2002 bit 5
+	var SpriteAddress = 0; // $2003
+
+	// Reading $2002 one PPU clock before reads it as clear and never sets the flag or generates NMI for that frame.
+	// Ref: http://wiki.nesdev.com/w/index.php/PPU_frame_timing.
+	var NMIInhibit;
 
 	// Data used for rendering.
 	var PixelsPerScanline = 341;
 	var VisiblePixelsPerScanline = 256;
 	var VisibleScanlines = 240;
-	var ScrollingFlipFlop;	// Related to scrolling/writing to 0x2005, 0x2006. true means first write has occurred.
-	var TempVRAMAddress;	// Loopy "latch".
-	var VRAMAddress;		// Pointer to location in VRAM where reads/writes will occur.
-	var VRAMBuffer;		// For delayed reads of VRAM memory
-	var TempFineX, TempFineY, FineX, FineY;
-	var Scanline;
-	var Pixel;
-	var FrameCounter;
-	var SpritePixels;				// Pixel buffer for sprites. Each byte represents a pixel on the screen;
-									// Bit 8 is BG flag (0 for normal, 1 for BG sprite), bit 7 is sprite 0 flag, low 4 bits are palette index.
-	var SpriteZeroX, SpriteZeroY;	// The location on screen of sprite #0.
-	var CachedAttributeTable;		// A cache of attribute table, decompressed from NES format to a more easily used format.
+	var ScrollingFlipFlop = false; // Related to scrolling/writing to 0x2005, 0x2006. true means first write has occurred.
+	var TempVRAMAddress = 0; // Loopy "latch".
+	var VRAMAddress = 0; // Pointer to location in VRAM where reads/writes will occur.
+	var VRAMBuffer = 0; // For delayed reads of VRAM memory
+	var TempFineX = 0, TempFineY = 0, FineX = 0, FineY = 0;
+	var Scanline = NES.ScanlineVBlankBegin; // Same as Nintendulator, per http://wiki.nesdev.com/w/index.php/PPU_power_up_state.
+	var Pixel = 0;
+	var FrameCounter = 0;
+
+	// Pixel buffer for sprites. Each byte represents a pixel on the screen;
+	// Bit 8 is BG flag (0 for normal, 1 for BG sprite), bit 7 is sprite 0 flag, low 4 bits are palette index.
+	var SpritePixels = new Uint8Array(NES.VisiblePixelsPerScanline * NES.VisibleScanlines);
+	var SpriteZeroX = 0, SpriteZeroY = 0; // The location on screen of sprite #0.
+
+	// A cache of attribute table, decompressed from NES format to a more easily used format.
+	// One byte per tile, 32 * 32 tiles per nametable, two nametables.
+	var CachedAttributeTable = new Uint8Array(2 * 32 * 32);
 
 	// Data used for interacting with the frontend.
 	var DrawScreen = Callbacks.DrawScreen;
@@ -55,18 +64,6 @@ NES.PPU = function(Callbacks)
 	// 0x800 bytes. The two active nametables of 0x2000 - 0x2FFF are mapped to 0x000 and 0x400.
 	var PPUMemory = new Uint8Array(0x800);
 	var PaletteMemory = new Uint8Array(0x20); // 0x3F00 - 0x3F1F.
-
-	// Registers.
-	ControlRegister1 = ControlRegister2 = SpriteAddress = 0;
-	InVBlank = SpriteZeroHit = SpriteOverflow = false;
-
-	// Data used for rendering.
-	ScrollingFlipFlop = false;
-	TempVRAMAddress = VRAMAddress = TempFineX = TempFineY = FineX = FineY = SpriteZeroX = SpriteZeroY = Pixel = FrameCounter = 0;
-	Scanline = NES.ScanlineVBlankBegin; // As Nintendulator, per http://wiki.nesdev.com/w/index.php/PPU_power_up_state.
-	VRAMBuffer = 0;
-	SpritePixels = new Uint8Array(NES.VisiblePixelsPerScanline * NES.VisibleScanlines);
-	CachedAttributeTable = new Uint8Array(2 * 32 * 32); // One byte per tile, 32 * 32 tiles per nametable, two nametables.
 
 	// Data used for interacting with the frontend.
 	var Screen = new Uint32Array(NES.VisiblePixelsPerScanline * NES.VisibleScanlines);
@@ -103,7 +100,7 @@ NES.PPU = function(Callbacks)
 	}
 
 	// Ticks the PPU, drawing a pixel if appropriate.
-	this.Tick = function()
+	Self.Tick = function()
 	{
 		// Scanlines 0 - 239 are the picture, 240 is junk and 241 indicates the beginning of VBlank.
 		// This NMI may actually be canceled if $2002 is written to during the second pixel of SL 241.
@@ -235,7 +232,7 @@ NES.PPU = function(Callbacks)
 		return CachedAttributeTable[NameTableAddress] | LowColor;
 	}
 
-	this.WriteRegister = function(Address, Value)
+	Self.WriteRegister = function(Address, Value)
 	{
 		// These 8 bytes are mirrored from 0x2000 to 0x3FFF. Collapse to the real address.
 		Address &= 0x2007;
@@ -342,7 +339,7 @@ NES.PPU = function(Callbacks)
 		}
 	}
 
-	this.ReadRegister = function(Address)
+	Self.ReadRegister = function(Address)
 	{
 		Address &= 0x2007; // These 8 bytes are mirrored from 0x2000 to 0x4000. Collapse to the real address.
 
@@ -414,13 +411,13 @@ NES.PPU = function(Callbacks)
 	}
 
 	// Copy 256 bytes from CPUMemory into sprite RAM.
-	this.DMA = function(SourceData)
+	Self.DMA = function(SourceData)
 	{
 		for (var i = 0; i < 0x100; i++)
 			SpriteMemory[(SpriteAddress + i) & 0xFF] = SourceData[i];
 	}
 
-	this.SetMirroring = function(NewMirroring)
+	Self.SetMirroring = function(NewMirroring)
 	{
 		Mirroring = NewMirroring;
 	}
@@ -507,6 +504,9 @@ NES.PPU = function(Callbacks)
 						// |= is necessary for sprite zero hit to work, but apparently this is also related
 						// to the red waterfall in the zelda 1 intro. Revisit when mapper 1 is implemented.
 						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] |= (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF;
+
+						//if (((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF) != (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF))
+						//	console.log(((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF), (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF));
 					}
 				}
 			}
