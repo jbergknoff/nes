@@ -503,10 +503,11 @@ NES.PPU = function(Callbacks)
 						PaletteIndex = LowColor | ((Attributes << 2) & 0x0C);
 						// |= is necessary for sprite zero hit to work, but apparently this is also related
 						// to the red waterfall in the zelda 1 intro. Revisit when mapper 1 is implemented.
-						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] |= (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF;
+						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0) | (i == 0 ? 0x40 : 0)) & 0xFF;
 
 						//if (((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF) != (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF))
-						//	console.log(((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF), (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF));
+						//	console.log(i, ((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF), (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF));
+						// output stuff like 9, 73; 10, 74; 11, 75. always x, 0x40 + x
 					}
 				}
 			}
