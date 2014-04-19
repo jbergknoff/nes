@@ -248,7 +248,6 @@ NES.PPU = function(Callbacks)
 				// Special case: disabling NMI on second pixel of VBlank should cancel NMI.
 				if ((Value & 0x80) == 0 && Scanline == NES.ScanlineVBlankBegin && Pixel == 1)
 				{
-					console.log("cancel nmi 1");
 					RaiseInterrupt(NES.InterruptType.CancelNMI);
 				}
 
@@ -359,7 +358,6 @@ NES.PPU = function(Callbacks)
 					NMIInhibit = true;
 					if (Pixel == 1)
 					{
-						console.log("cancel nmi 2");
 						RaiseInterrupt(NES.InterruptType.CancelNMI);
 					}
 				}
@@ -440,8 +438,7 @@ NES.PPU = function(Callbacks)
 		// Lower index has higher priority, so iterate backwards.
 		for (var i = 63; i >= 0; --i)
 		{
-			//ScreenY = (byte)(SpriteMemory[4 * i] + 1); // The value stored is actually Y - 1, so we increment.
-			ScreenY = SpriteMemory[4 * i] + 1;
+			ScreenY = SpriteMemory[4 * i] + 1; // The value stored is actually Y - 1, so we increment.
 			if (ScreenY == 0 || ScreenY > 239) continue; // Sprite is outside the screen.
 			TileNumber = SpriteMemory[4 * i + 1];
 			Attributes = SpriteMemory[4 * i + 2];
@@ -501,13 +498,7 @@ NES.PPU = function(Callbacks)
 						}
 
 						PaletteIndex = LowColor | ((Attributes << 2) & 0x0C);
-						// |= is necessary for sprite zero hit to work, but apparently this is also related
-						// to the red waterfall in the zelda 1 intro. Revisit when mapper 1 is implemented.
 						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0) | (i == 0 ? 0x40 : 0)) & 0xFF;
-
-						//if (((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF) != (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF))
-						//	console.log(i, ((PaletteIndex | (Background ? 0x80 : 0)) & 0xFF), (SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] | (PaletteIndex | (Background ? 0x80 : 0)) & 0xFF));
-						// output stuff like 9, 73; 10, 74; 11, 75. always x, 0x40 + x
 					}
 				}
 			}
@@ -541,25 +532,21 @@ NES.PPU = function(Callbacks)
 			for (var CoarseX = 0; CoarseX < 8; CoarseX++)
 			{
 				AttributeByte = PPUMemory[0x03C0 + 8 * CoarseY + CoarseX];
-				//Temp = (byte)((AttributeByte & 0x03) << 2);
 				Temp = (AttributeByte & 0x03) << 2;
 				CachedAttributeTable[32 * (4 * CoarseY + 0) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 0) + 4 * CoarseX + 1] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 1) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 1) + 4 * CoarseX + 1] = Temp;
-				//Temp = (byte)(AttributeByte & 0x0C);
 				Temp = AttributeByte & 0x0C;
 				CachedAttributeTable[32 * (4 * CoarseY + 0) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 0) + 4 * CoarseX + 3] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 1) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 1) + 4 * CoarseX + 3] = Temp;
-				//Temp = (byte)((AttributeByte & 0x30) >> 2);
 				Temp = (AttributeByte & 0x30) >> 2;
 				CachedAttributeTable[32 * (4 * CoarseY + 2) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 2) + 4 * CoarseX + 1] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 3) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 3) + 4 * CoarseX + 1] = Temp;
-				//Temp = (byte)((AttributeByte & 0xC0) >> 4);
 				Temp = (AttributeByte & 0xC0) >> 4;
 				CachedAttributeTable[32 * (4 * CoarseY + 2) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[32 * (4 * CoarseY + 2) + 4 * CoarseX + 3] = Temp;
@@ -567,25 +554,21 @@ NES.PPU = function(Callbacks)
 				CachedAttributeTable[32 * (4 * CoarseY + 3) + 4 * CoarseX + 3] = Temp;
 
 				AttributeByte = PPUMemory[0x07C0 + 8 * CoarseY + CoarseX];
-				//Temp = (byte)((AttributeByte & 0x03) << 2);
 				Temp = (AttributeByte & 0x03) << 2;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 0) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 0) + 4 * CoarseX + 1] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 1) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 1) + 4 * CoarseX + 1] = Temp;
-				//Temp = (byte)(AttributeByte & 0x0C);
 				Temp = AttributeByte & 0x0C;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 0) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 0) + 4 * CoarseX + 3] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 1) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 1) + 4 * CoarseX + 3] = Temp;
-				//Temp = (byte)((AttributeByte & 0x30) >> 2);
 				Temp = (AttributeByte & 0x30) >> 2;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 2) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 2) + 4 * CoarseX + 1] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 3) + 4 * CoarseX + 0] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 3) + 4 * CoarseX + 1] = Temp;
-				//Temp = (byte)((AttributeByte & 0xC0) >> 4);
 				Temp = (AttributeByte & 0xC0) >> 4;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 2) + 4 * CoarseX + 2] = Temp;
 				CachedAttributeTable[0x0400 + 32 * (4 * CoarseY + 2) + 4 * CoarseX + 3] = Temp;
