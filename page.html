@@ -40,18 +40,30 @@ NES.addEventListener
 	"message",
 	function(E)
 	{
-		switch (E.Type)
+		var Message = E.data || {};
+
+		switch (Message.Type)
 		{
+			case "Ready":
+				Run();
+				break;
+
 			case "Screen":
-				DrawScreen(E.Data);
+				DrawScreen(Message.Data);
 				break;
 
 			case "Audio":
-				BufferAudio(E.Data);
+				BufferAudio(Message.Data);
 				break;
 		}
 	}
 );
+
+function Run()
+{
+	NES.postMessage({ "Type": "Run" });
+	requestAnimationFrame(Run);
+}
 
 var DC = document.getElementById("c").getContext("2d");
 function DrawScreen(Data)
@@ -60,9 +72,9 @@ function DrawScreen(Data)
 
 	for (var i = 0; i < 256 * 240; i++)
 	{
-		ID.data[4 * i + 0] = Colors[Screen[i]][0];
-		ID.data[4 * i + 1] = Colors[Screen[i]][1];
-		ID.data[4 * i + 2] = Colors[Screen[i]][2];
+		ID.data[4 * i + 0] = Colors[Data[i]][0];
+		ID.data[4 * i + 1] = Colors[Data[i]][1];
+		ID.data[4 * i + 2] = Colors[Data[i]][2];
 		ID.data[4 * i + 3] = 255;
 	}
 
