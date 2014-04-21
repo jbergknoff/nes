@@ -1,8 +1,9 @@
-var NES = NES || {};
-
-// Callbacks: object with
-//		DrawScreen: function() // TODO
-//		PollInput: function() // TODO
+importScripts("./constants.js");
+importScripts("./cpu.js");
+importScripts("./ppu.js");
+importScripts("./apu.js");
+importScripts("./cartridge.js");
+importScripts("./mapper.js");
 
 // This is the class that connects all of the independent pieces of the system together:
 // the CPU, PPU, APU, cartridge, etc.
