@@ -19,6 +19,7 @@ NES.System = function(Callbacks)
 	var CurrentInterrupt = NES.InterruptType.None;
 	var AdditionalCycles = 0; // For DMA, interrupt, etc.
 
+	var AudioContext = window.webkitAudioContext || window.AudioContext;
 	var MyAudioContext = new AudioContext();
 	var AudioBuffer = [];
 	///*
