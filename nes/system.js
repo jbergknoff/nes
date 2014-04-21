@@ -16,6 +16,7 @@ onmessage = function(E)
 			break;
 
 		case "Run":
+			//console.log(Message.Milliseconds);
 			Run();
 			break;
 

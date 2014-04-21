@@ -59,10 +59,12 @@ NES.addEventListener
 	}
 );
 
-function Run()
+var LastTimestamp = 0;
+function Run(Timestamp)
 {
-	NES.postMessage({ "Type": "Run" });
+	NES.postMessage({ "Type": "Run", "Milliseconds": Timestamp - LastTimestamp });
 	requestAnimationFrame(Run);
+	LastTimestamp = Timestamp;
 }
 
 var DC = document.getElementById("c").getContext("2d");
@@ -103,18 +105,6 @@ window.AudioCallback = function(E)
 }
 
 ScriptProcessor.onaudioprocess = window.AudioCallback;
-
-function InputPoller()
-{
-	var Counter = 0;
-
-	return function()
-	{
-		var Value = !!ButtonState[Counter];
-		Counter = (Counter + 1) & 7;
-		return Value;
-	}
-}
 
 var Buttons =
 {
