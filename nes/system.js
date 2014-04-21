@@ -20,6 +20,7 @@ onmessage = function(E)
 			break;
 
 		case "Input":
+			Controllers[~~Message.Controller - 1].ButtonState = Message.ButtonState;
 			break;
 	}
 };
@@ -34,6 +35,13 @@ var Cartridge;
 
 var CurrentInterrupt = NES.InterruptType.None;
 var AdditionalCycles = 0; // For DMA, interrupt, etc.
+
+var Controllers = [];
+Controllers[0] =
+{
+	"ButtonState": [],
+	"Counter": 0
+};
 
 // ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 function LoadCartridge(ROMData)
@@ -155,7 +163,13 @@ function ReadByte(Address)
 	else if (Address < 0x6000)
 	{
 		if (Address == 0x4015) return APU.ReadRegister(0x4015);
-		if (Address == 0x4016) return 0;//PollInput() ? 1 : 0;
+		if (Address == 0x4016)
+		{
+			var Value = Controllers[0].ButtonState[Controllers[0].Counter++];
+			Controllers[0].Counter &= 7;
+			return Value;
+		}
+
 		//throw "APU/input register read " + Address.toString(16).substr(-4, 4);
 		return 0;
 	}

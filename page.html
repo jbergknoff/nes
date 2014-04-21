@@ -154,6 +154,7 @@ function HandleInput(State)
 		E.stopPropagation();
 		E.preventDefault();
 		ButtonState[ButtonKeyCodes[E.keyCode]] = State;
+		NES.postMessage({ "Type": "Input", "Controller": 1, "ButtonState": ButtonState });
 	};
 }
 
