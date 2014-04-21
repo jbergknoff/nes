@@ -15,35 +15,10 @@ NES.System = function(Callbacks)
 	var PPU;
 	var APU;
 	var Cartridge;
-	var PollInput = (Callbacks || {}).PollInput;
+	var PollInput = (Callbacks || {}).PollInput || function() {};
 
 	var CurrentInterrupt = NES.InterruptType.None;
 	var AdditionalCycles = 0; // For DMA, interrupt, etc.
-
-	var AudioContext = window.webkitAudioContext || window.AudioContext;
-	var MyAudioContext = new AudioContext();
-	var AudioBuffer = [];
-	///*
-	//
-	// this doesn't belong here
-	//
-	var ScriptProcessor = MyAudioContext.createScriptProcessor(0, 0, 1);
-	ScriptProcessor.connect(MyAudioContext.destination);
-	// Putting the callback on the global window object so that it doesn't get
-	// garbage collected.
-	// http://lists.w3.org/Archives/Public/public-audio/2013JanMar/0304.html
-	window.AudioCallback = function(E)
-	{
-		var OutputBuffer = E.outputBuffer;
-		//console.log("looking for %d bytes, audio buffer has length %d", OutputBuffer.length, AudioBuffer.length);
-		OutputBuffer.getChannelData(0).set(AudioBuffer.splice(0, OutputBuffer.length));
-	}
-
-	ScriptProcessor.onaudioprocess = window.AudioCallback;
-	//
-	// this doesn't belong here
-	//
-	//*/
 
 	// ROMData is a Uint8Array (https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView)
 	Self.LoadCartridge = function(ROMData)
@@ -67,18 +42,7 @@ NES.System = function(Callbacks)
 				"RaiseInterrupt": RaiseInterrupt,
 				"DrawScreen": function(Screen, FrameCounter)
 				{
-					var ID = DC.createImageData(256, 240);
-
-					for (var i = 0; i < 256 * 240; i++)
-					{
-						ID.data[4 * i + 0] = NES.Colors[Screen[i]][0];
-						ID.data[4 * i + 1] = NES.Colors[Screen[i]][1];
-						ID.data[4 * i + 2] = NES.Colors[Screen[i]][2];
-						ID.data[4 * i + 3] = 255;
-					}
-
-					//console.log("drawing frame %d", FrameCounter);
-					DC.putImageData(ID, 0, 0);
+					postMessage({ "Type": "Screen", "Data": Screen });
 				}
 			}
 		);
@@ -96,7 +60,6 @@ NES.System = function(Callbacks)
 	var AudioSampleCycleCounter = 0;
 
 	var AudioBuffer = [];
-	var AudioBufferIndex = 0;
 	Self.Step = function()
 	{
 		var CPUCycles = CPU.Step();
@@ -125,9 +88,10 @@ NES.System = function(Callbacks)
 			AudioBuffer.push((APU.Output() / 128) - 1);
 
 			// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
-			if (++AudioBufferIndex == 735)
+			if (AudioBuffer.length == 735)
 			{
-				AudioBufferIndex = 0;
+				postMessage({ "Type": "Audio", "Data": AudioBuffer });
+				AudioBuffer.length = 0;
 				Running = false;
 			}
 

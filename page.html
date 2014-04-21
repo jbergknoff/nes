@@ -1,96 +1,23 @@
 <html>
 <head>
 	<title>nes</title>
-	<link rel="stylesheet" href="http://www.hmphry.com/barebones/css/barebones.css">
-	<script src="http://cdnjs.cloudflare.com/ajax/libs/async/0.2.7/async.min.js"></script>
-	<script src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.0.0/knockout-min.js"></script>
-	<script src="./nes/constants.js"></script>
-	<script src="./nes/system.js"></script>
-	<script src="./nes/cpu.js"></script>
-	<script src="./nes/ppu.js"></script>
-	<script src="./nes/apu.js"></script>
-	<script src="./nes/cartridge.js"></script>
-	<script src="./nes/mapper.js"></script>
 </head>
 
 <body>
 
-<input type="file" data-bind="event: { change: ChooseROM }">
+<input type="file" id="file-picker">
 
 <hr>
 
-<div class="container" style="font-family: monospace">
-	<div class="column twelve">
-		<canvas width="256" height="240" id="c"></canvas>
-	</div>
-
-	<div class="column twelve">
-		<button data-bind="click: Step">step</button>
-		<button data-bind="click: Pause">pause</button>
-		<button data-bind="click: Run">run</button>
-		<span>breakpoint:</span>
-		<input type="text" data-bind="value: Breakpoint">
-		<span>
-			<span data-bind="text: InstructionsExecuted"></span>
-			<span>instructions executed</span>
-		</span>
-	</div>
-
-	<div class="column three">
-		<table data-bind="foreach: Disassembly">
-			<tbody>
-			<!-- ko if: typeof PC !== "undefined" -->
-			<tr>
-				<td data-bind="text: '$' + ('0000' + PC.toString(16)).substr(-4, 4)" style="color: lightgray"></td>
-				<td data-bind="text: Text"></td>
-			</tr>
-			<!-- /ko -->
-			</tbody>
-		</table>
-	</div>
-
-	<div class="column one">
-		<!-- ko if: typeof CPUDetails() !== "undefined" -->
-		<table>
-		<tr><td>PC</td><td data-bind="text: '$' + ('0000' + CPUDetails().PC.toString(16)).substr(-4, 4)"></td></tr>
-		<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
-		<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
-		<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
-		<tr><td>P</td><td data-bind="text: '$' + ('00' + CPUDetails().P.toString(16)).substr(-2, 2)"></td></tr>
-		<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
-		</table>
-		<!-- /ko -->
-	</div>
-
-	<div class="column eight">
-		<span>memory offset:</span>
-		<input type="text" data-bind="value: MemoryOffset">
-		<br>
-		<!-- ko if: typeof Memory() !== "undefined" -->
-		<table data-bind="foreach: Memory">
-			<tbody>
-			<tr>
-				<td data-bind="text: '$' + ('0000' + (parseInt($root.MemoryOffset(), 16) + 0x10 * $index()).toString(16)).substr(-4, 4)" style="color: lightgray"></td>
-				<td data-bind="foreach: $data">
-					<span data-bind="text: ('00' + $data.toString(16)).substr(-2, 2)"></span>
-				</td>
-		</table>
-		<!-- /ko -->
-	</div>
-</div>
+<canvas width="256" height="240" id="c"></canvas>
 
 <script type="text/javascript">
-function DebuggerModel()
-{
-	var Self = this;
-	var System = ko.observable();
-	Self.CPUDetails = ko.observable();
-	Self.MemoryOffset = ko.observable();
-	Self.Breakpoint = ko.observable();
-	Self.Mode = null; // "STEP" vs. "RUN"
-	Self.InstructionsExecuted = ko.observable(0);
+var NES = new Worker("./nes/system.js");
 
-	Self.ChooseROM = function(Data, E)
+document.getElementById("file-picker").addEventListener
+(
+	"change",
+	function(E)
 	{
 		var FR = new FileReader();
 
@@ -100,79 +27,70 @@ function DebuggerModel()
 			function()
 			{
 				if (FR.error) return console.log("error reading the ROM", FR.error);
-				System(new NES.System({ "PollInput": new InputPoller() }));
-				System().LoadCartridge(new Uint8Array(FR.result));
-				Self.CPUDetails(System().CPUDetails());
-				Self.MemoryOffset("0000");
-				Self.Mode = "STEP";
+				NES.postMessage({ "Type": "Cartridge", "Data": new Uint8Array(FR.result) });
 			}
 		);
 
 		FR.readAsArrayBuffer(E.target.files[0]);
-	};
+	}
+);
 
-	Self.Disassembly = ko.computed
-	(
-		function()
+NES.addEventListener
+(
+	"message",
+	function(E)
+	{
+		switch (E.Type)
 		{
-			Self.CPUDetails();
-			if (!System()) return;
-			return System().Disassemble();
+			case "Screen":
+				DrawScreen(E.Data);
+				break;
+
+			case "Audio":
+				BufferAudio(E.Data);
+				break;
 		}
-	);
+	}
+);
 
-	Self.Step = function()
+var DC = document.getElementById("c").getContext("2d");
+function DrawScreen(Data)
+{
+	var ID = DC.createImageData(256, 240);
+
+	for (var i = 0; i < 256 * 240; i++)
 	{
-		Self.Mode = "STEP";
-		System().Step();
-		Self.CPUDetails(System().CPUDetails());
-		Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
-	};
-
-	Self.Run = function()
-	{
-		var Breakpoint = parseInt(Self.Breakpoint(), 16);
-		Self.Mode = "RUN";
-
-		requestAnimationFrame(RunABit);
-	};
-
-	function RunABit()
-	{
-		if (Self.Mode !== "RUN")
-		{
-			Self.CPUDetails(System().CPUDetails());
-			return;
-		}
-
-		System().Run();
-		requestAnimationFrame(RunABit);
+		ID.data[4 * i + 0] = Colors[Screen[i]][0];
+		ID.data[4 * i + 1] = Colors[Screen[i]][1];
+		ID.data[4 * i + 2] = Colors[Screen[i]][2];
+		ID.data[4 * i + 3] = 255;
 	}
 
-	Self.Pause = function()
-	{
-		Self.Mode = "STEP";
-	}
-
-	Self.Memory = ko.computed
-	(
-		function()
-		{
-			Self.CPUDetails();
-			if (!System()) return;
-			var RowLength = 0x10;
-			var Offset = parseInt(Self.MemoryOffset(), 16);
-			var Dump = System().MemoryDump(Offset, 8 * RowLength);
-			var Memory = [];
-			while (Dump.length > 0)
-				Memory.push(Dump.splice(0, RowLength));
-
-			return Memory;
-		}
-	);
+	DC.putImageData(ID, 0, 0);
 }
 
-ko.applyBindings(new DebuggerModel());
+var AudioBuffer = [];
+function BufferAudio(Data)
+{
+	AudioBuffer = AudioBuffer.concat(Data);
+}
+
+var AudioContext = window.webkitAudioContext || window.AudioContext;
+var AC = new AudioContext();
+
+var ScriptProcessor = AC.createScriptProcessor(0, 0, 1);
+ScriptProcessor.connect(AC.destination);
+// Putting the callback on the global window object so that it doesn't get
+// garbage collected.
+// http://lists.w3.org/Archives/Public/public-audio/2013JanMar/0304.html
+window.AudioCallback = function(E)
+{
+	var OutputBuffer = E.outputBuffer;
+	//console.log("looking for %d bytes, audio buffer has length %d", OutputBuffer.length, AudioBuffer.length);
+	OutputBuffer.getChannelData(0).set(AudioBuffer.splice(0, OutputBuffer.length));
+}
+
+ScriptProcessor.onaudioprocess = window.AudioCallback;
 
 function InputPoller()
 {
@@ -226,6 +144,74 @@ function HandleInput(State)
 		ButtonState[ButtonKeyCodes[E.keyCode]] = State;
 	};
 }
+
+var Colors =
+[
+	[ 0x7C, 0x7C, 0x7C ],
+	[ 0x00, 0x00, 0xFC ],
+	[ 0x00, 0x00, 0xBC ],
+	[ 0x44, 0x28, 0xBC ],
+	[ 0x94, 0x00, 0x84 ],
+	[ 0xA8, 0x00, 0x20 ],
+	[ 0xA8, 0x10, 0x00 ],
+	[ 0x88, 0x14, 0x00 ],
+	[ 0x50, 0x30, 0x00 ],
+	[ 0x00, 0x78, 0x00 ],
+	[ 0x00, 0x68, 0x00 ],
+	[ 0x00, 0x58, 0x00 ],
+	[ 0x00, 0x40, 0x58 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0xBC, 0xBC, 0xBC ],
+	[ 0x00, 0x78, 0xF8 ],
+	[ 0x00, 0x58, 0xF8 ],
+	[ 0x68, 0x44, 0xFC ],
+	[ 0xD8, 0x00, 0xCC ],
+	[ 0xE4, 0x00, 0x58 ],
+	[ 0xF8, 0x38, 0x00 ],
+	[ 0xE4, 0x5C, 0x10 ],
+	[ 0xAC, 0x7C, 0x00 ],
+	[ 0x00, 0xB8, 0x00 ],
+	[ 0x00, 0xA8, 0x00 ],
+	[ 0x00, 0xA8, 0x44 ],
+	[ 0x00, 0x88, 0x88 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0xF8, 0xF8, 0xF8 ],
+	[ 0x3C, 0xBC, 0xFC ],
+	[ 0x68, 0x88, 0xFC ],
+	[ 0x98, 0x78, 0xF8 ],
+	[ 0xF8, 0x78, 0xF8 ],
+	[ 0xF8, 0x58, 0x98 ],
+	[ 0xF8, 0x78, 0x58 ],
+	[ 0xFC, 0xA0, 0x44 ],
+	[ 0xF8, 0xB8, 0x00 ],
+	[ 0xB8, 0xF8, 0x18 ],
+	[ 0x58, 0xD8, 0x54 ],
+	[ 0x58, 0xF8, 0x98 ],
+	[ 0x00, 0xE8, 0xD8 ],
+	[ 0x78, 0x78, 0x78 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0xFC, 0xFC, 0xFC ],
+	[ 0xA4, 0xE4, 0xFC ],
+	[ 0xB8, 0xB8, 0xF8 ],
+	[ 0xD8, 0xB8, 0xF8 ],
+	[ 0xF8, 0xB8, 0xF8 ],
+	[ 0xF8, 0xA4, 0xC0 ],
+	[ 0xF0, 0xD0, 0xB0 ],
+	[ 0xFC, 0xE0, 0xA8 ],
+	[ 0xF8, 0xD8, 0x78 ],
+	[ 0xD8, 0xF8, 0x78 ],
+	[ 0xB8, 0xF8, 0xB8 ],
+	[ 0xB8, 0xF8, 0xD8 ],
+	[ 0x00, 0xFC, 0xFC ],
+	[ 0xF8, 0xD8, 0xF8 ],
+	[ 0x00, 0x00, 0x00 ],
+	[ 0x00, 0x00, 0x00 ]
+];
 </script>
 </body>
 </html>

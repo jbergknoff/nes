@@ -1,0 +1,231 @@
+<html>
+<head>
+	<title>nes</title>
+	<link rel="stylesheet" href="http://www.hmphry.com/barebones/css/barebones.css">
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/async/0.2.7/async.min.js"></script>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.0.0/knockout-min.js"></script>
+	<script src="./nes/constants.js"></script>
+	<script src="./nes/system.js"></script>
+	<script src="./nes/cpu.js"></script>
+	<script src="./nes/ppu.js"></script>
+	<script src="./nes/apu.js"></script>
+	<script src="./nes/cartridge.js"></script>
+	<script src="./nes/mapper.js"></script>
+</head>
+
+<body>
+
+<input type="file" data-bind="event: { change: ChooseROM }">
+
+<hr>
+
+<div class="container" style="font-family: monospace">
+	<div class="column twelve">
+		<canvas width="256" height="240" id="c"></canvas>
+	</div>
+
+	<div class="column twelve">
+		<button data-bind="click: Step">step</button>
+		<button data-bind="click: Pause">pause</button>
+		<button data-bind="click: Run">run</button>
+		<span>breakpoint:</span>
+		<input type="text" data-bind="value: Breakpoint">
+		<span>
+			<span data-bind="text: InstructionsExecuted"></span>
+			<span>instructions executed</span>
+		</span>
+	</div>
+
+	<div class="column three">
+		<table data-bind="foreach: Disassembly">
+			<tbody>
+			<!-- ko if: typeof PC !== "undefined" -->
+			<tr>
+				<td data-bind="text: '$' + ('0000' + PC.toString(16)).substr(-4, 4)" style="color: lightgray"></td>
+				<td data-bind="text: Text"></td>
+			</tr>
+			<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
+
+	<div class="column one">
+		<!-- ko if: typeof CPUDetails() !== "undefined" -->
+		<table>
+		<tr><td>PC</td><td data-bind="text: '$' + ('0000' + CPUDetails().PC.toString(16)).substr(-4, 4)"></td></tr>
+		<tr><td>A</td><td data-bind="text: '$' + ('00' + CPUDetails().A.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>X</td><td data-bind="text: '$' + ('00' + CPUDetails().X.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>Y</td><td data-bind="text: '$' + ('00' + CPUDetails().Y.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>P</td><td data-bind="text: '$' + ('00' + CPUDetails().P.toString(16)).substr(-2, 2)"></td></tr>
+		<tr><td>S</td><td data-bind="text: '$' + ('00' + CPUDetails().S.toString(16)).substr(-2, 2)"></td></tr>
+		</table>
+		<!-- /ko -->
+	</div>
+
+	<div class="column eight">
+		<span>memory offset:</span>
+		<input type="text" data-bind="value: MemoryOffset">
+		<br>
+		<!-- ko if: typeof Memory() !== "undefined" -->
+		<table data-bind="foreach: Memory">
+			<tbody>
+			<tr>
+				<td data-bind="text: '$' + ('0000' + (parseInt($root.MemoryOffset(), 16) + 0x10 * $index()).toString(16)).substr(-4, 4)" style="color: lightgray"></td>
+				<td data-bind="foreach: $data">
+					<span data-bind="text: ('00' + $data.toString(16)).substr(-2, 2)"></span>
+				</td>
+		</table>
+		<!-- /ko -->
+	</div>
+</div>
+
+<script type="text/javascript">
+function DebuggerModel()
+{
+	var Self = this;
+	var System = ko.observable();
+	Self.CPUDetails = ko.observable();
+	Self.MemoryOffset = ko.observable();
+	Self.Breakpoint = ko.observable();
+	Self.Mode = null; // "STEP" vs. "RUN"
+	Self.InstructionsExecuted = ko.observable(0);
+
+	Self.ChooseROM = function(Data, E)
+	{
+		var FR = new FileReader();
+
+		FR.addEventListener
+		(
+			"load",
+			function()
+			{
+				if (FR.error) return console.log("error reading the ROM", FR.error);
+				System(new NES.System({ "PollInput": new InputPoller() }));
+				System().LoadCartridge(new Uint8Array(FR.result));
+				Self.CPUDetails(System().CPUDetails());
+				Self.MemoryOffset("0000");
+				Self.Mode = "STEP";
+			}
+		);
+
+		FR.readAsArrayBuffer(E.target.files[0]);
+	};
+
+	Self.Disassembly = ko.computed
+	(
+		function()
+		{
+			Self.CPUDetails();
+			if (!System()) return;
+			return System().Disassemble();
+		}
+	);
+
+	Self.Step = function()
+	{
+		Self.Mode = "STEP";
+		System().Step();
+		Self.CPUDetails(System().CPUDetails());
+		Self.InstructionsExecuted(Self.InstructionsExecuted() + 1);
+	};
+
+	Self.Run = function()
+	{
+		var Breakpoint = parseInt(Self.Breakpoint(), 16);
+		Self.Mode = "RUN";
+
+		requestAnimationFrame(RunABit);
+	};
+
+	function RunABit()
+	{
+		if (Self.Mode !== "RUN")
+		{
+			Self.CPUDetails(System().CPUDetails());
+			return;
+		}
+
+		System().Run();
+		requestAnimationFrame(RunABit);
+	}
+
+	Self.Pause = function()
+	{
+		Self.Mode = "STEP";
+	}
+
+	Self.Memory = ko.computed
+	(
+		function()
+		{
+			Self.CPUDetails();
+			if (!System()) return;
+			var RowLength = 0x10;
+			var Offset = parseInt(Self.MemoryOffset(), 16);
+			var Dump = System().MemoryDump(Offset, 8 * RowLength);
+			var Memory = [];
+			while (Dump.length > 0)
+				Memory.push(Dump.splice(0, RowLength));
+
+			return Memory;
+		}
+	);
+}
+
+ko.applyBindings(new DebuggerModel());
+
+function InputPoller()
+{
+	var Counter = 0;
+
+	return function()
+	{
+		var Value = !!ButtonState[Counter];
+		Counter = (Counter + 1) & 7;
+		return Value;
+	}
+}
+
+var Buttons =
+{
+	"A": 0,
+	"B": 1,
+	"Select": 2,
+	"Start": 3,
+	"Up": 4,
+	"Down": 5,
+	"Left": 6,
+	"Right": 7
+};
+
+var ButtonState = Object.keys(Buttons).map(function() { return false; });
+
+var ButtonKeyCodes =
+{
+	90: Buttons.A, // z
+	88: Buttons.B, // x
+	32: Buttons.Select, // space
+	13: Buttons.Start, // enter
+	38: Buttons.Up,
+	40: Buttons.Down,
+	37: Buttons.Left,
+	39: Buttons.Right
+};
+
+document.addEventListener("keyup", HandleInput(false));
+document.addEventListener("keydown", HandleInput(true));
+
+function HandleInput(State)
+{
+	return function(E)
+	{
+		if (!(E.keyCode in ButtonKeyCodes)) return;
+
+		E.stopPropagation();
+		E.preventDefault();
+		ButtonState[ButtonKeyCodes[E.keyCode]] = State;
+	};
+}
+</script>
+</body>
+</html>
