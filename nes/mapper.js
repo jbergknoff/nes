@@ -71,7 +71,7 @@ NES.Mapper[1] = function(ExternalPRG, ExternalCHR)
 
 	Self.Mirroring = NES.MirroringType.SingleScreen;
 
-	// Returns true upon a successful five-write sequence which affected a register.
+	// Takes action after a successful five-write sequence which affected a register.
 	Self.WriteRegister = function(Address, Value)
 	{
 		// If reset bit is set...
@@ -193,5 +193,21 @@ NES.Mapper[1] = function(ExternalPRG, ExternalCHR)
 		Self.PRG[1] = Self.ExternalPRG[PRGBankLower + 1];
 		Self.PRG[2] = Self.ExternalPRG[PRGBankUpper];
 		Self.PRG[3] = Self.ExternalPRG[PRGBankUpper + 1];
+	}
+}
+
+NES.Mapper[2] = function(ExternalPRG, ExternalCHR)
+{
+	var Self = this;
+	NES.MapperBase.apply(Self, arguments);
+
+	Self.WriteRegister = function(Address, Value)
+	{
+		Value &= 0x0F;
+		if (2 * Value + 1 > Self.ExternalPRG.Length)
+			throw "Mapper 2 trying to access non-existent PRG bank.";
+
+		Self.PRG[0] = Self.ExternalPRG[2 * Value];
+		Self.PRG[1] = Self.ExternalPRG[2 * Value + 1];
 	}
 }

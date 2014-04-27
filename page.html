@@ -55,6 +55,10 @@ NES.addEventListener
 			case "Audio":
 				BufferAudio(Message.Data);
 				break;
+
+			case "Log":
+				console.log(Message.Data);
+				break;
 		}
 	}
 );

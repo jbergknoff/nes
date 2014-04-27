@@ -30,8 +30,8 @@ onmessage = function(E)
 // the CPU, PPU, APU, cartridge, etc.
 var RAM = new Uint8Array(0x800);
 var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });
+var APU = new NES.APU({ "ReadByte": ReadByte, "RaiseInterrupt": RaiseInterrupt });
 var PPU;
-var APU;
 var Cartridge;
 
 var CurrentInterrupt = NES.InterruptType.None;
@@ -48,11 +48,15 @@ Controllers[0] =
 function LoadCartridge(ROMData)
 {
 	Cartridge = new NES.Cartridge(ROMData);
-	if (!Cartridge.IsValid()) return console.log("rom not valid");
+	if (!Cartridge.IsValid())
+	{
+		postMessage({ "Type": "Log", "Data": "rom not valid" });
+		return;
+	}
 
 	// Read the 16 bit "reset vector" at 0xFFFC in order to know where to start executing game code.
 	var StartingPC = (ReadByte(0xFFFD) << 8) | ReadByte(0xFFFC);
-	console.log("starting program at " + StartingPC.toString(16));
+	postMessage({ "Type": "Log", "Data": "starting program at " + StartingPC.toString(16) });
 
 	CPU.PC(StartingPC);
 
@@ -71,8 +75,6 @@ function LoadCartridge(ROMData)
 	);
 
 	PPU.SetMirroring(Cartridge.Mirroring());
-
-	APU = new NES.APU({ "ReadByte": ReadByte, "RaiseInterrupt": RaiseInterrupt });
 	postMessage({ "Type": "Ready" });
 }
 

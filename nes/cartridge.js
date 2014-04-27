@@ -51,12 +51,12 @@ NES.Cartridge = function(ROMData)
 
 		PRGPageCount = 2 * ROMData[4];
 		CHRPageCount = 8 * ROMData[5];
-		console.log("PRGPageCount = " + PRGPageCount + ", CHRPageCount = " + CHRPageCount);
+		postMessage({ "Type": "Log", "Data": "PRGPageCount = " + PRGPageCount + ", CHRPageCount = " + CHRPageCount });
 
 		var ExpectedLength = 0x10 + PRGPageCount * NES.PRGPageSize + CHRPageCount * NES.CHRPageSize;
 		if (ROMData.length === 0x10 || ROMData.length !== ExpectedLength)
 		{
-			console.log("Expected length to be " + ExpectedLength.toString(16) + " but got " + ROMData.length.toString(16));
+			postMessage({ "Type": "Log", "Data": "Expected length to be " + ExpectedLength.toString(16) + " but got " + ROMData.length.toString(16) });
 			return;
 		}
 
