@@ -227,3 +227,90 @@ NES.Mapper[3] = function()
 			Self.CHR[i] = Self.ExternalCHR[8 * CHRBank + i];
 	}
 }
+
+NES.Mapper[4] = function()
+{
+	var Self = this;
+	NES.MapperBase.apply(Self, arguments);
+
+	var BankIndex = 0;
+	var CHRMode = 0;
+	var PRGMode = 0;
+
+	Self.WriteRegister = function(Address, Value)
+	{
+		switch (Address & 0xE001)
+		{
+			// Prepare for a subsequent write to 0x8001.
+			// The low 3 bits (BankIndex) dictate which "register" gets written to
+			// when 0x8001 is written. The documentation refers to R0-R7, which take
+			// the values written to 0x8001 after writes to 0x8000 with 0-7, respectively.
+			//
+			// All writes to even addresses in the range 0x8000 - 0x9FFE end up here.
+			case 0x8000:
+				BankIndex = Value & 7;
+				PRGMode = (Value >> 6) & 1
+				CHRMode = (Value >> 7) & 1;
+				break;
+
+			// TODO: write some documentation around the writes to 0x8000 and 0x8001
+			// because the nesdev articles are inscrutable.
+			// this also helped: http://kevtris.org/mappers/mmc3/
+			//
+			// All writes to odd addresses in the range 0x8000 - 0x9FFE end up here.
+			case 0x8001:
+				switch (BankIndex)
+				{
+					// Select 2 KB CHR bank at PPU $0000-$07FF
+					case 0:
+						Self.CHR[0 + 4 * CHRMode] = Self.ExternalCHR[Value & 0xFE];
+						Self.CHR[1 + 4 * CHRMode] = Self.ExternalCHR[Value | 1];
+						break;
+
+					// Select 2 KB CHR bank at PPU $0800-$0FFF
+					case 1:
+						Self.CHR[2 + 4 * CHRMode] = Self.ExternalCHR[Value & 0xFE];
+						Self.CHR[3 + 4 * CHRMode] = Self.ExternalCHR[Value | 1];
+						break;
+
+					// Select 1 KB CHR bank at PPU $1000-$13FF
+					case 2:
+						Self.CHR[4 - 4 * CHRMode] = Self.ExternalCHR[Value];
+						break;
+
+					// Select 1 KB CHR bank at PPU $1400-$17FF
+					case 3:
+						Self.CHR[5 - 4 * CHRMode] = Self.ExternalCHR[Value];
+						break;
+
+					// Select 1 KB CHR bank at PPU $1800-$1BFF
+					case 4:
+						Self.CHR[6 - 4 * CHRMode] = Self.ExternalCHR[Value];
+						break;
+
+					// Select 1 KB CHR bank at PPU $1C00-$1FFF
+					case 5:
+						Self.CHR[7 - 4 * CHRMode] = Self.ExternalCHR[Value];
+						break;
+
+					// Select 8 KB PRG ROM bank at $8000-$9FFF
+					case 6:
+						Value = Value & 0x3F;
+						Self.PRG[0 + 2 * PRGMode] = Self.ExternalPRG[Value];
+						Self.PRG[2 - 2 * PRGMode] = Self.ExternalPRG[Self.ExternalPRG.length - 2];
+						Self.PRG[3] = Self.ExternalPRG[Self.ExternalPRG.length - 1];
+						break;
+
+					// Select 8 KB PRG ROM bank at $A000-$BFFF
+					case 7:
+						Value = Value & 0x3F;
+						Self.PRG[1] = Self.ExternalPRG[Value];
+						Self.PRG[2 - 2 * PRGMode] = Self.ExternalPRG[Self.ExternalPRG.length - 2];
+						Self.PRG[3] = Self.ExternalPRG[Self.ExternalPRG.length - 1];
+						break;
+				}
+
+				break;
+		}
+	}
+}

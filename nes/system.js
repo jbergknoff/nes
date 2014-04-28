@@ -177,16 +177,7 @@ function ReadByte(Address)
 		return 0;
 	}
 	else if (Address < 0x8000)
-	{
-		switch (Cartridge.MapperNumber)
-		{
-			case 1:
-				return Cartridge.Mapper().SRAM[Address & 0x1FFF];
-
-			default:
-				throw "Trying to read from $" + Address.ToString("X4") + ".";
-		}
-	}
+		return Cartridge.Mapper().SRAM[Address & 0x1FFF];
 	else
 		return Cartridge.Mapper().ReadPRG(Address);
 }
