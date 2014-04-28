@@ -50,13 +50,13 @@ NES.MapperBase = function(ExternalPRG, ExternalCHR)
 	}
 }
 
-NES.Mapper[0] = function(ExternalPRG, ExternalCHR)
+NES.Mapper[0] = function()
 {
 	var Self = this;
 	NES.MapperBase.apply(Self, arguments);
 }
 
-NES.Mapper[1] = function(ExternalPRG, ExternalCHR)
+NES.Mapper[1] = function()
 {
 	var Self = this;
 	NES.MapperBase.apply(Self, arguments);
@@ -196,7 +196,7 @@ NES.Mapper[1] = function(ExternalPRG, ExternalCHR)
 	}
 }
 
-NES.Mapper[2] = function(ExternalPRG, ExternalCHR)
+NES.Mapper[2] = function()
 {
 	var Self = this;
 	NES.MapperBase.apply(Self, arguments);
@@ -209,5 +209,21 @@ NES.Mapper[2] = function(ExternalPRG, ExternalCHR)
 
 		Self.PRG[0] = Self.ExternalPRG[2 * Value];
 		Self.PRG[1] = Self.ExternalPRG[2 * Value + 1];
+	}
+}
+
+NES.Mapper[3] = function()
+{
+	var Self = this;
+	NES.MapperBase.apply(Self, arguments);
+
+	Self.WriteRegister = function(Address, Value)
+	{
+		var CHRBank = Value & 3;
+		if (8 * CHRBank + 7 > Self.ExternalCHR.Length)
+			throw "Mapper 3 trying to access non-existent CHR bank " + CHRBank;
+
+		for (var i = 0; i < 8; i++)
+			Self.CHR[i] = Self.ExternalCHR[8 * CHRBank + i];
 	}
 }
