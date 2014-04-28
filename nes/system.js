@@ -219,6 +219,10 @@ function WriteByte(Address, Value)
 			case 1:
 				PPU.SetMirroring(Cartridge.Mapper().Mirroring);
 				break;
+
+			case 4:
+				PPU.SetMirroring(Cartridge.Mapper().Mirroring);
+				break;
 		}
 	}
 	else

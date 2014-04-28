@@ -311,6 +311,10 @@ NES.Mapper[4] = function()
 				}
 
 				break;
+
+			case 0xA000:
+				Self.Mirroring = NES.MirroringType[(Value & 1) ? "Horizontal" : "Vertical"];
+				break;
 		}
 	}
 }
