@@ -240,6 +240,7 @@ function HandleInterrupt()
 
 		case NES.InterruptType.IRQBRK:
 			CPU.PrepareInterrupt((ReadByte(0xFFFF) << 8) | ReadByte(0xFFFE));
+			AdditionalCycles += 7 * NES.CyclesPerCPUCycle;
 			break;
 	}
 

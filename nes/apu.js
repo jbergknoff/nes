@@ -1,19 +1,25 @@
 var NES = NES || {};
 
+// Options: object with
+//		RaiseInterrupt: function(NES.InterruptType).
+//		ReadByte: function(Address)
+//
 // Note throughout that the raw period is stored, and the period counters count up from -1,
 // in order to correctly (I hope) emulate the (period + 1) effective period.
-NES.APU = function(Callbacks)
+NES.APU = function(Options)
 {
 	var Self = this;
 
-	Callbacks = Callbacks || {};
+	var ReadByte = Options.ReadByte;
+	var RaiseInterrupt = Options.RaiseInterrupt;
+
 	var DisableAPUIRQ = false;
 	var FrameInterrupt = false
 	var Square1 = new NES.APU.SquareWave();
 	var Square2 = new NES.APU.SquareWave();
 	var Triangle = new NES.APU.TriangleWave();
 	var Noise = new NES.APU.NoiseChannel();
-	var DMC = new NES.APU.DMCChannel(Callbacks.ReadByte, Callbacks.RaiseInterrupt);
+	var DMC = new NES.APU.DMCChannel(ReadByte, RaiseInterrupt);
 
 	var SequencerMode = 0; // 4 or 5.
 	var SequencerIndex = 0; // Indicates which step of SequencerFrames we're waiting to encounter.
@@ -69,11 +75,10 @@ NES.APU = function(Callbacks)
 						Square1.SweepTick(true);
 						Square2.SweepTick(false);
 						Noise.LengthCounterTick();
+
 						if (!DisableAPUIRQ)
-						{
-							throw "APU sequencer wants to raise IRQ.";
-							// TODO: raise IRQ
-						}
+							RaiseInterrupt(NES.InterruptType.IRQBRK);
+
 						break;
 				}
 			}
@@ -624,9 +629,7 @@ NES.APU.DMCChannel = function(ReadByte, RaiseInterrupt)
 				BytesRemaining = BytesRemainingReloadValue;
 			}
 			else if (IRQEnabled)
-			{
 				Interrupt = true;
-			}
 		}
 	}
 
