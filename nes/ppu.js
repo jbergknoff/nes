@@ -139,7 +139,7 @@ NES.PPU = function(Options)
 		// MMC3 scanline counting.
 		// "The IRQ counter WILL NOT DECREMENT AT ALL unless bit 3 OR bit 4 of 2000h on the PPU are set!"
 		// http://kevtris.org/mappers/mmc3/
-		if (Pixel == 260 && (ControlRegister1 & 0x18) != 0)
+		if (Scanline < VisibleScanlines && Pixel == 260 && (ControlRegister1 & 0x18) != 0)
 			RaiseEvent("MMC3Scanline");
 
 		// Bookkeeping for scanlines, etc., even when the pixel isn't being drawn.
