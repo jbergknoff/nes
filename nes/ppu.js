@@ -4,6 +4,7 @@ var NES = NES || {};
 //		RaiseInterrupt: function(NES.InterruptType).
 //		GetMapper: function() returning the cartridge mapper object.
 //		DrawScreen: function(ScreenData, FrameCounter)
+//		RaiseEvent: function(EventName, Data) (first attempt at MMC3 scanline counting).
 NES.PPU = function(Options)
 {
 	var Self = this;
@@ -46,6 +47,7 @@ NES.PPU = function(Options)
 	var RaiseInterrupt = Options.RaiseInterrupt;
 	var DrawScreen = Options.DrawScreen;
 	var GetMapper = Options.GetMapper;
+	var RaiseEvent = Options.RaiseEvent;
 
 	// Interfacing with the rest of the NES.
 	var Mirroring = NES.MirroringType.SingleScreen; // A cache of Mapper.Mirroring
@@ -133,6 +135,12 @@ NES.PPU = function(Options)
 			var PixelColor = ProcessPixel();
 			Screen[NES.VisiblePixelsPerScanline * Scanline + Pixel] = PixelColor;
 		}
+
+		// MMC3 scanline counting.
+		// "The IRQ counter WILL NOT DECREMENT AT ALL unless bit 3 OR bit 4 of 2000h on the PPU are set!"
+		// http://kevtris.org/mappers/mmc3/
+		if (Pixel == 260 && (ControlRegister1 & 0x18) != 0)
+			RaiseEvent("MMC3Scanline");
 
 		// Bookkeeping for scanlines, etc., even when the pixel isn't being drawn.
 		++Pixel;
@@ -358,6 +366,10 @@ NES.PPU = function(Options)
 
 		switch (Address)
 		{
+			// These reads are not really allowed (?), but I'm using them for MMC3 scanline counting.
+			case 0x2000: return ControlRegister1;
+			case 0x2001: return ControlRegister2;
+
 			case 0x2002:
 				// Special race condition for reading VBlank on PPU cycle when it is being set.
 				// Ref: http://wiki.nesdev.com/w/index.php/PPU_frame_timing

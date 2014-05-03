@@ -4,6 +4,10 @@ NES.Mapper = {};
 NES.MapperBase = function(ExternalPRG, ExternalCHR)
 {
 	var Self = this;
+
+	// This function will be set by the system after the mapper is initialized
+	Self.RaiseInterrupt = null;
+
 	Self.Mirroring = NES.MirroringType.SingleScreen;
 	Self.ExternalPRG = ExternalPRG;
 	Self.ExternalCHR = ExternalCHR;
@@ -235,6 +239,11 @@ NES.Mapper[4] = function()
 	var CHRMode = 0;
 	var PRGMode = 0;
 
+	var IRQCounter = 0;
+	var IRQReload = 0;
+	var IRQEnabled = false;
+	var IRQPending = false;
+
 	Self.WriteRegister = function(Address, Value)
 	{
 		switch (Address & 0xE001)
@@ -313,6 +322,46 @@ NES.Mapper[4] = function()
 			case 0xA000:
 				Self.Mirroring = NES.MirroringType[(Value & 1) ? "Horizontal" : "Vertical"];
 				break;
+
+			case 0xA001:
+				// TODO: enable/disable WRAM.
+				break;
+
+			case 0xC000:
+				IRQReload = Value;
+				break;
+
+			case 0xC001:
+				IRQCounter = 0;
+				break;
+
+			case 0xE000:
+				IRQEnabled = false;
+				IRQPending = false;
+				break;
+
+			case 0xE001:
+				IRQEnabled = true;
+				break;
+		}
+	}
+
+	Self.OnScanline = function()
+	{
+		if (IRQCounter == 0)
+		{
+			IRQCounter = IRQReload;
+			return;
+		}
+
+		--IRQCounter;
+		if (IRQCounter == 0 && IRQEnabled)
+		{
+			// TODO: really, this should raise IRQPending flag, and repeatedly
+			// fire IRQs, waiting for one to be acknowledged. I'm not sure how to
+			// "repeatedly fire IRQs", because nothing in the mapper is being run by
+			// the emulator on a constant basis.
+			Self.RaiseInterrupt(NES.InterruptType.IRQBRK);
 		}
 	}
 }

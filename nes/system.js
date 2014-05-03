@@ -34,8 +34,9 @@ var APU = new NES.APU({ "ReadByte": ReadByte, "RaiseInterrupt": RaiseInterrupt }
 var PPU = new NES.PPU
 (
 	{
-		"GetMapper": function() { return Cartridge.Mapper(); },
 		"RaiseInterrupt": RaiseInterrupt,
+		"RaiseEvent": RaiseEvent,
+		"GetMapper": function() { return Cartridge.Mapper; },
 		"DrawScreen": function(Screen, FrameCounter)
 		{
 			postMessage({ "Type": "Screen", "Data": Screen });
@@ -63,6 +64,12 @@ function LoadCartridge(ROMData)
 	{
 		postMessage({ "Type": "Log", "Data": "rom not valid" });
 		return;
+	}
+
+	if (Cartridge.Mapper.Number == 4)
+	{
+		Cartridge.Mapper.RaiseInterrupt = RaiseInterrupt;
+		AddEventListener("MMC3Scanline", Cartridge.Mapper.OnScanline);
 	}
 
 	// Read the 16 bit "reset vector" at 0xFFFC in order to know where to start executing game code.
@@ -172,9 +179,9 @@ function ReadByte(Address)
 		return 0;
 	}
 	else if (Address < 0x8000)
-		return Cartridge.Mapper().SRAM[Address & 0x1FFF];
+		return Cartridge.Mapper.SRAM[Address & 0x1FFF];
 	else
-		return Cartridge.Mapper().ReadPRG(Address);
+		return Cartridge.Mapper.ReadPRG(Address);
 }
 
 function WriteByte(Address, Value)
@@ -202,9 +209,9 @@ function WriteByte(Address, Value)
 		return;
 	}
 	else if (Address >= 0x6000 && Address < 0x8000)
-		Cartridge.Mapper().SRAM[Address & 0x1FFF] = Value;
+		Cartridge.Mapper.SRAM[Address & 0x1FFF] = Value;
 	else if (Address >= 0x8000)
-		Cartridge.Mapper().WriteRegister(Address, Value);
+		Cartridge.Mapper.WriteRegister(Address, Value);
 	else
 		throw "Don't know how to write to 0x" + Address.toString(16);
 }
@@ -237,4 +244,17 @@ function HandleInterrupt()
 	}
 
 	CurrentInterrupt = NES.InterruptType.None;
+}
+
+var Events = {};
+function RaiseEvent(EventName, Data)
+{
+	var Listeners = Events[EventName] || [];
+	Listeners.forEach(function(L) { L(Data); });
+}
+
+function AddEventListener(EventName, Listener)
+{
+	Events[EventName] = Events[EventName] || [];
+	Events[EventName].push(Listener);
 }
