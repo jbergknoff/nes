@@ -34,7 +34,6 @@ NES.Cartridge = function(ROMData)
 
 	var PRGPageCount = 0;
 	var CHRPageCount = 0;
-	var Mirroring = NES.MirroringType.Horizontal;
 	var SRAMEnabled = false;
 	var Mapper;
 	Self.MapperNumber = 0;
@@ -60,7 +59,6 @@ NES.Cartridge = function(ROMData)
 			return;
 		}
 
-		Mirroring = (ROMData[6] & 0x01) == 0 ? NES.MirroringType.Horizontal : NES.MirroringType.Vertical;
 		SRAMEnabled = (ROMData[6] & 0x02) != 0;
 
 		var PRGPages = [];
@@ -83,6 +81,7 @@ NES.Cartridge = function(ROMData)
 			throw "Mapper #" + Self.MapperNumber + " not supported";
 
 		Mapper = new NES.Mapper[Self.MapperNumber](PRGPages, CHRPages);
+		Mapper.Mirroring = (ROMData[6] & 0x01) == 0 ? NES.MirroringType.Horizontal : NES.MirroringType.Vertical;
 
 		Valid = true;
 	}
@@ -91,7 +90,6 @@ NES.Cartridge = function(ROMData)
 	Self.IsValid = function() { return Valid; };
 	Self.PRGPageCount = function() { return PRGPageCount; };
 	Self.CHRPageCount = function() { return CHRPageCount; };
-	Self.Mirroring = function() { return Mirroring; };
 	Self.SRAMEnabled = function() { return SRAMEnabled; };
 	Self.Mapper = function() { return Mapper; };
 }

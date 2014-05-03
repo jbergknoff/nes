@@ -1,11 +1,10 @@
 var NES = NES || {};
 
-// Callbacks, object with:
-//		ReadCHR: function(Address).
-//		WriteCHR: function(Address, Value).
+// Options: object with
 //		RaiseInterrupt: function(NES.InterruptType).
-//		DrawScreen: ?
-NES.PPU = function(Callbacks)
+//		GetMapper: function() returning the cartridge mapper object.
+//		DrawScreen: function(ScreenData, FrameCounter)
+NES.PPU = function(Options)
 {
 	var Self = this;
 
@@ -44,14 +43,26 @@ NES.PPU = function(Callbacks)
 	var CachedAttributeTable = new Uint8Array(2 * 32 * 32);
 
 	// Data used for interacting with the frontend.
-	var DrawScreen = Callbacks.DrawScreen;
+	var RaiseInterrupt = Options.RaiseInterrupt;
+	var DrawScreen = Options.DrawScreen;
+	var GetMapper = Options.GetMapper;
 
 	// Interfacing with the rest of the NES.
-	var Mirroring = NES.MirroringType.Horizontal;
+	var Mirroring = NES.MirroringType.SingleScreen; // A cache of Mapper.Mirroring
 	var TotalScanlineCount = NES.TotalScanlineCount;
-	var ReadCHR = Callbacks.ReadCHR;
-	var WriteCHR = Callbacks.WriteCHR;
-	var RaiseInterrupt = Callbacks.RaiseInterrupt;
+	var Mapper = null;
+
+	function ReadCHR(Address)
+	{
+		Mapper = Mapper || GetMapper();
+		return Mapper.ReadCHR(Address);
+	}
+
+	function WriteCHR(Address, Value)
+	{
+		Mapper = Mapper || GetMapper();
+		Mapper.WriteCHR(Address, Value);
+	}
 
 	// Memory-related. PPU Memory Map:
 	// Sprite Memory:			0x100 bytes apart from the rest.
@@ -77,6 +88,9 @@ NES.PPU = function(Callbacks)
 		NMIInhibit = false;
 		PrepareSprites();
 		++FrameCounter;
+
+		// Update the cache of "Mirroring".
+		Mirroring = GetMapper().Mirroring;
 
 		// This is important. The VRAM pointer is not set to the latch unless drawing is enabled.
 		if ((ControlRegister2 & 0x18) != 0)
@@ -413,11 +427,6 @@ NES.PPU = function(Callbacks)
 	{
 		for (var i = 0; i < 0x100; i++)
 			SpriteMemory[(SpriteAddress + i) & 0xFF] = SourceData[i];
-	}
-
-	Self.SetMirroring = function(NewMirroring)
-	{
-		Mirroring = NewMirroring;
 	}
 
 	function PrepareSprites()

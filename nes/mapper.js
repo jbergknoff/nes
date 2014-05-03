@@ -4,7 +4,7 @@ NES.Mapper = {};
 NES.MapperBase = function(ExternalPRG, ExternalCHR)
 {
 	var Self = this;
-
+	Self.Mirroring = NES.MirroringType.SingleScreen;
 	Self.ExternalPRG = ExternalPRG;
 	Self.ExternalCHR = ExternalCHR;
 
@@ -68,8 +68,6 @@ NES.Mapper[1] = function()
 	var Register3 = 0; // Writes to any of 0xE000 - 0xFFFF
 	var ShiftRegister = 0;
 	var WriteCounter = 0;
-
-	Self.Mirroring = NES.MirroringType.SingleScreen;
 
 	// Takes action after a successful five-write sequence which affected a register.
 	Self.WriteRegister = function(Address, Value)

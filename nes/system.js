@@ -31,7 +31,18 @@ onmessage = function(E)
 var RAM = new Uint8Array(0x800);
 var CPU = new NES.CPU({ "ReadByte": ReadByte, "WriteByte": WriteByte, "RaiseInterrupt": RaiseInterrupt });
 var APU = new NES.APU({ "ReadByte": ReadByte, "RaiseInterrupt": RaiseInterrupt });
-var PPU;
+var PPU = new NES.PPU
+(
+	{
+		"GetMapper": function() { return Cartridge.Mapper(); },
+		"RaiseInterrupt": RaiseInterrupt,
+		"DrawScreen": function(Screen, FrameCounter)
+		{
+			postMessage({ "Type": "Screen", "Data": Screen });
+		}
+	}
+);
+
 var Cartridge;
 
 var CurrentInterrupt = NES.InterruptType.None;
@@ -59,22 +70,6 @@ function LoadCartridge(ROMData)
 	postMessage({ "Type": "Log", "Data": "starting program at " + StartingPC.toString(16) });
 
 	CPU.PC(StartingPC);
-
-	// TODO: gross that this is here and not up there, but Cartridge.Mapper() isn't defined until now.
-	PPU = new NES.PPU
-	(
-		{
-			"ReadCHR": Cartridge.Mapper().ReadCHR,
-			"WriteCHR": Cartridge.Mapper().WriteCHR,
-			"RaiseInterrupt": RaiseInterrupt,
-			"DrawScreen": function(Screen, FrameCounter)
-			{
-				postMessage({ "Type": "Screen", "Data": Screen });
-			}
-		}
-	);
-
-	PPU.SetMirroring(Cartridge.Mirroring());
 	postMessage({ "Type": "Ready" });
 }
 
@@ -209,22 +204,7 @@ function WriteByte(Address, Value)
 	else if (Address >= 0x6000 && Address < 0x8000)
 		Cartridge.Mapper().SRAM[Address & 0x1FFF] = Value;
 	else if (Address >= 0x8000)
-	{
 		Cartridge.Mapper().WriteRegister(Address, Value);
-
-		// Not all, but some writes to mapper registers require updating other components of the system.
-		// I don't think there is anything wrong with performing those updates on every mapper register write.
-		switch (Cartridge.MapperNumber)
-		{
-			case 1:
-				PPU.SetMirroring(Cartridge.Mapper().Mirroring);
-				break;
-
-			case 4:
-				PPU.SetMirroring(Cartridge.Mapper().Mirroring);
-				break;
-		}
-	}
 	else
 		throw "Don't know how to write to 0x" + Address.toString(16);
 }
