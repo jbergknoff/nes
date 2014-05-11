@@ -11,6 +11,8 @@
 
 <canvas width="256" height="240" id="c"></canvas>
 
+<div><span id="fps">0</span> fps</div>
+
 <script type="text/javascript">
 var NES = new Worker("./nes/system.js");
 
@@ -50,6 +52,7 @@ NES.addEventListener
 
 			case "Screen":
 				DrawScreen(Message.Data);
+				FrameCounter++;
 				break;
 
 			case "Audio":
@@ -219,6 +222,18 @@ var Colors =
 	[ 0x00, 0x00, 0x00 ],
 	[ 0x00, 0x00, 0x00 ]
 ];
+
+var FrameCounter = 0;
+setInterval
+(
+	function()
+	{
+		var FPSSpan = document.getElementById("fps");
+		FPSSpan.innerText = FPSSpan.textContent = FrameCounter;
+		FrameCounter = 0;
+	},
+	1000
+);
 </script>
 </body>
 </html>
