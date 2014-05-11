@@ -245,10 +245,15 @@ document.getElementById("stop").addEventListener
 	function()
 	{
 		Stop = !Stop;
-		if (Stop) this.value = "resume";
+		if (Stop)
+		{
+			this.value = "resume";
+			ScriptProcessor.disconnect(AC.destination);
+		}
 		else
 		{
 			this.value = "stop";
+			ScriptProcessor.connect(AC.destination);
 			Run();
 		}
 	}
