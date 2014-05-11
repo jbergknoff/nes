@@ -12,6 +12,7 @@
 <canvas width="256" height="240" id="c"></canvas>
 
 <div><span id="fps">0</span> fps</div>
+<div><input id="stop" type="button" value="stop"></div>
 
 <script type="text/javascript">
 var NES = new Worker("./nes/system.js");
@@ -67,11 +68,14 @@ NES.addEventListener
 );
 
 var LastTimestamp = 0;
+var Stop = false;
 function Run(Timestamp)
 {
 	NES.postMessage({ "Type": "Run", "Milliseconds": Timestamp - LastTimestamp });
-	requestAnimationFrame(Run);
 	LastTimestamp = Timestamp;
+	if (Stop) return;
+
+	requestAnimationFrame(Run);
 }
 
 var DC = document.getElementById("c").getContext("2d");
@@ -233,6 +237,21 @@ setInterval
 		FrameCounter = 0;
 	},
 	1000
+);
+
+document.getElementById("stop").addEventListener
+(
+	"click",
+	function()
+	{
+		Stop = !Stop;
+		if (Stop) this.value = "resume";
+		else
+		{
+			this.value = "stop";
+			Run();
+		}
+	}
 );
 </script>
 </body>

@@ -16,8 +16,7 @@ onmessage = function(E)
 			break;
 
 		case "Run":
-			//console.log(Message.Milliseconds);
-			Run();
+			Run(Message.Milliseconds);
 			break;
 
 		case "Input":
@@ -88,6 +87,7 @@ Self.CPUDetails = function() { return CPU.Details(); };
 var PPUCycleCounter = 0;
 var APUCycleCounter = 0;
 var AudioSampleCycleCounter = 0;
+var AudioSamplesRequested = 0;
 
 var AudioBuffer = [];
 function Step()
@@ -117,8 +117,7 @@ function Step()
 	{
 		AudioBuffer.push((APU.Output() / 128) - 1);
 
-		// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
-		if (AudioBuffer.length == 735)
+		if (AudioBuffer.length >= AudioSamplesRequested)
 		{
 			postMessage({ "Type": "Audio", "Data": AudioBuffer });
 			AudioBuffer.length = 0;
@@ -137,9 +136,13 @@ function Step()
 };
 
 var Running = false;
-function Run()
+// Run for a certain number of milliseconds (by default, 1000/60 ~= 16).
+function Run(Milliseconds)
 {
 	Running = true;
+	// (1/60) second * 44100 samples/second * 1 byte/sample = 735 bytes.
+	// (milliseconds) * (44100 samples / sec) * (1 sec / 1000 milliseconds)
+	AudioSamplesRequested = ~~(Milliseconds * 44100 / 1000) || 735;
 	while (Running)
 	{
 		Step();
