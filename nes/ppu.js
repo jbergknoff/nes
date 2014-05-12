@@ -1,5 +1,27 @@
 var NES = NES || {};
 
+var Bitmasks =
+{
+	// Bitmasks for use with $2000
+	"VRAM_INCREMENT_32": 0x04,
+	"TALL_SPRITES": 0x20,
+	"GENERATE_NMI": 0x80,
+
+	// Bitmasks for use with $2001
+	"GRAYSCALE": 0x01,
+	"SHOW_BG_LEFT_EDGE": 0x02,
+	"SHOW_SPRITES_LEFT_EDGE": 0x04,
+	"SHOW_BG": 0x08,
+	"SHOW_SPRITES": 0x10,
+
+	// Bitmasks for use with $2002
+	"SPRITE_OVERFLOW": 0x20,
+	"SPRITE_ZERO_HIT": 0x40,
+	"IN_VBLANK": 0x80
+};
+
+Bitmasks.SHOW_SOMETHING = Bitmasks.SHOW_BG | Bitmasks.SHOW_SPRITES;
+
 // Options: object with
 //		RaiseInterrupt: function(NES.InterruptType).
 //		GetMapper: function() returning the cartridge mapper object.
@@ -10,8 +32,8 @@ NES.PPU = function(Options)
 	var Self = this;
 
 	// Registers.
-	var ControlRegister1 = 0; // $2000
-	var ControlRegister2 = 0; // $2001
+	var R2000 = 0; // $2000
+	var R2001 = 0; // $2001
 	var InVBlank = false; // $2002 bit 7
 	var SpriteZeroHit = false; // $2002 bit 6
 	var SpriteOverflow = false; // $2002 bit 5
@@ -95,15 +117,22 @@ NES.PPU = function(Options)
 		Mirroring = GetMapper().Mirroring;
 
 		// This is important. The VRAM pointer is not set to the latch unless drawing is enabled.
-		if ((ControlRegister2 & 0x18) != 0)
+		if (R2001 & Bitmasks.SHOW_SOMETHING)
 			VRAMAddress = TempVRAMAddress;
+	}
+
+	function ComputerSpriteZeroHit()
+	{
+		var HitScanline = 0;
+		var HitPixel = 0;
 	}
 
 	function InitializeScanline()
 	{
 		// When beginning a line and with BG or sprites enabled, get correct VRAM address.
 		// Ref: NinTech.txt line 567.
-		if ((ControlRegister2 & 0x18) == 0) return;
+		if (!(R2001 & Bitmasks.SHOW_SOMETHING))
+			return;
 
 		VRAMAddress &= 0xFBE0;
 		VRAMAddress |= (TempVRAMAddress & 0x041F);
@@ -123,7 +152,9 @@ NES.PPU = function(Options)
 		if (Scanline == NES.ScanlineVBlankBegin && Pixel == 0 && !NMIInhibit)
 		{
 			InVBlank = true;
-			if ((ControlRegister1 & 0x80) != 0) RaiseInterrupt(NES.InterruptType.NMI);
+			if (R2000 & Bitmasks.GENERATE_NMI)
+				RaiseInterrupt(NES.InterruptType.NMI);
+
 			DrawScreen(Screen, FrameCounter);
 		}
 
@@ -139,7 +170,7 @@ NES.PPU = function(Options)
 		// MMC3 scanline counting.
 		// "The IRQ counter WILL NOT DECREMENT AT ALL unless bit 3 OR bit 4 of 2000h on the PPU are set!"
 		// http://kevtris.org/mappers/mmc3/
-		if (Scanline < VisibleScanlines && Pixel == 260 && (ControlRegister1 & 0x18) != 0)
+		if (Scanline < VisibleScanlines && Pixel == 260 && (R2000 & Bitmasks.SHOW_SOMETHING))
 			RaiseEvent("MMC3Scanline");
 
 		// Bookkeeping for scanlines, etc., even when the pixel isn't being drawn.
@@ -147,7 +178,7 @@ NES.PPU = function(Options)
 
 		// On NTSC, scanline -1 of every other frame is one pixel shorter than usual. Skip over pixel 337.
 		// 337 is the only pixel for which Blargg's 10-even_odd_timing.nes gives a pass.
-		if (Pixel == 337 && Scanline == -1 && (FrameCounter & 1) == 0 && (ControlRegister2 & 0x08) != 0)
+		if (Pixel == 337 && Scanline == -1 && (FrameCounter & 1) == 0 && (R2001 & Bitmasks.SHOW_BG))
 			++Pixel;
 
 		if (Pixel > PixelsPerScanline - 1)
@@ -163,20 +194,20 @@ NES.PPU = function(Options)
 
 	function ProcessPixel()
 	{
-		// Note that if ControlRegister2 & 0x18 == 0, i.e. if BG and sprites are disabled, then we immediately exit.
-		//if (Scanline == -1 || Pixel >= NES.VisiblePixelsPerScanline || Scanline >= NES.VisibleScanlines || (ControlRegister2 & 0x18) == 0)
+		// Note that if R2001 & 0x18 == 0, i.e. if BG and sprites are disabled, then we immediately exit.
+		//if (Scanline == -1 || Pixel >= NES.VisiblePixelsPerScanline || Scanline >= NES.VisibleScanlines || (R2001 & 0x18) == 0)
 		// Foregoing the above checks because Tick() does the first three for us.
-		if ((ControlRegister2 & 0x18) == 0)
+		if (!(R2001 & Bitmasks.SHOW_SOMETHING))
 			return PaletteMemory[0];
 
 		var PaletteIndex = 0;
 
 		var SpritePixel = SpritePixels[256 * Scanline + Pixel];
 		// If nametable clipping is enabled and we're in the left 8 pixels, skip drawing. Otherwise, draw.
-		PaletteIndex = ((ControlRegister2 & 2) == 0 && Pixel < 8) ? 0 : DrawBGPixel();
+		PaletteIndex = (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && Pixel < 8) ? 0 : DrawBGPixel();
 		var BGTransparent = (PaletteIndex == 0);
 
-		if ((SpritePixel & 0x0F) != 0 && (Pixel >= 8 || (ControlRegister2 & 0x04) != 0) // If there is a sprite at this pixel...
+		if ((SpritePixel & 0x0F) != 0 && (Pixel >= 8 || (R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE)) // If there is a sprite at this pixel...
 				&& ((SpritePixel & 0x80) == 0 || BGTransparent)) // and it's a foreground sprite or the BG is transparent,
 		{
 			PaletteIndex = 0x10 + (SpritePixel & 0xF); // then draw the sprite instead of the BG.
@@ -184,17 +215,18 @@ NES.PPU = function(Options)
 
 		// If we are in the vicinity of sprite #0, check if we should set SpriteZeroHit.
 		// Scanline is zero-indexed, 0-239. SpriteZeroY can be between 1 and 256.
-		var SpriteHeight = (ControlRegister1 & 0x20) == 0 ? 8 : 16;
-		if ((ControlRegister2 & 0x18) == 0x18 && !BGTransparent && !SpriteZeroHit
+		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
+		if ((R2001 & Bitmasks.SHOW_SOMETHING) == Bitmasks.SHOW_SOMETHING && !BGTransparent && !SpriteZeroHit
 			&& Scanline >= SpriteZeroY && Scanline < SpriteZeroY + SpriteHeight && Pixel >= SpriteZeroX && Pixel < SpriteZeroX + SpriteHeight
-			&& Pixel != 255 && (Pixel >= 8 || (ControlRegister2 & 0x04) != 0)) // Check sprite left-eight-pixels clipping
+			&& Pixel != 255 && (Pixel >= 8 || (R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE))) // Check sprite left-eight-pixels clipping
 		{
+			//postMessage({ "Type": "Log", "Data": "sprite zero hit: (" + Scanline + ", " + Pixel + ")" });
 			SpriteZeroHit = (SpritePixels[256 * Scanline + Pixel] & 0x40) != 0;
 		}
 
 		// These VRAM pointer updates assume that we are rendering the pixel and incrementing things accordingly.
 		// Therefore, only do the updates if background rendering is turned on, $2001.3.
-		if ((ControlRegister2 & 0x08) != 0)
+		if ((R2001 & Bitmasks.SHOW_BG))
 		{
 			++FineX;
 			FineX &= 7;
@@ -243,7 +275,7 @@ NES.PPU = function(Options)
 		// Get pattern table data for the tile.
 		// Pattern table has 256 tiles, each 128 bits = 16 bytes long, two bits per pixel in an 8x8 tile.
 
-		var PatternTableAddress = ((ControlRegister1 & 0x10) << 8) + 16 * TileIndex + FineY;
+		var PatternTableAddress = ((R2000 & 0x10) << 8) + 16 * TileIndex + FineY;
 		var Shift = 7 - FineX;
 		var LowColor = ((ReadCHR(PatternTableAddress) >> Shift) & 1) | (((ReadCHR(PatternTableAddress + 8) >> Shift) << 1) & 2);
 
@@ -262,10 +294,10 @@ NES.PPU = function(Options)
 		switch (Address)
 		{
 			case 0x2000:
-				var RaiseNMI = (Value & 0x80) != 0 && (ControlRegister1 & 0x80) == 0 && InVBlank; // Enabling NMI while in VBlank will trigger an NMI.
+				var RaiseNMI = (Value & 0x80) != 0 && !(R2000 & Bitmasks.GENERATE_NMI) && InVBlank; // Enabling NMI while in VBlank will trigger an NMI.
 				if (Scanline == TotalScanlineCount - 2 && Pixel == PixelsPerScanline - 1) RaiseNMI = false; // Special case: can't raise NMI on final cycle of VBlank.
 
-				ControlRegister1 = Value;
+				R2000 = Value;
 				if (RaiseNMI && !NMIInhibit) RaiseInterrupt(NES.InterruptType.NMI);
 				// Special case: disabling NMI on second pixel of VBlank should cancel NMI.
 				if ((Value & 0x80) == 0 && Scanline == NES.ScanlineVBlankBegin && Pixel == 1)
@@ -277,7 +309,7 @@ NES.PPU = function(Options)
 				break;
 
 			case 0x2001:
-				ControlRegister2 = Value;
+				R2001 = Value;
 				break;
 
 			case 0x2003:
@@ -352,8 +384,11 @@ NES.PPU = function(Options)
 					WriteCHR(VRAMAddress, Value);
 				}
 
-				if ((ControlRegister1 & 4) == 0) ++VRAMAddress;
-				else VRAMAddress += 32;
+				if (R2000 & Bitmasks.VRAM_INCREMENT_32)
+					VRAMAddress += 32;
+				else
+					++VRAMAddress;
+
 				VRAMAddress &= 0x3FFF;
 
 				break;
@@ -367,8 +402,8 @@ NES.PPU = function(Options)
 		switch (Address)
 		{
 			// These reads are not really allowed (?), but I'm using them for MMC3 scanline counting.
-			case 0x2000: return ControlRegister1;
-			case 0x2001: return ControlRegister2;
+			case 0x2000: return R2000;
+			case 0x2001: return R2001;
 
 			case 0x2002:
 				// Special race condition for reading VBlank on PPU cycle when it is being set.
@@ -424,8 +459,11 @@ NES.PPU = function(Options)
 						VRAMBuffer = ReadCHR(VRAMAddress);
 				}
 
-				if ((ControlRegister1 & 4) == 0) ++VRAMAddress;
-				else VRAMAddress += 32;
+				if (R2000 & Bitmasks.VRAM_INCREMENT_32)
+					VRAMAddress += 32;
+				else
+					++VRAMAddress;
+
 				VRAMAddress &= 0x3FFF;
 
 				return ReturnValue;
@@ -447,8 +485,8 @@ NES.PPU = function(Options)
 		var FlipHorizontally;
 		var FlipVertically;
 		var Background;
-		var SpriteHeight = (ControlRegister1 & 0x20) == 0 ? 8 : 16;
-		var SpritePatternTable = (ControlRegister1 & 0x08) << 9;
+		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
+		var SpritePatternTable = (R2000 & 0x08) << 9;
 		var PatternTableByte0, PatternTableByte1;
 		var LowColor, PaletteIndex;
 
