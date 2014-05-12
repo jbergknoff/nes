@@ -3,7 +3,9 @@ var NES = NES || {};
 var Bitmasks =
 {
 	// Bitmasks for use with $2000
+	"NAMETABLE_ADDRESS": 0x03,
 	"VRAM_INCREMENT_32": 0x04,
+	"PATTERN_TABLE_ADDRESS": 0x10,
 	"TALL_SPRITES": 0x20,
 	"GENERATE_NMI": 0x80,
 
@@ -35,7 +37,8 @@ NES.PPU = function(Options)
 	var R2000 = 0; // $2000
 	var R2001 = 0; // $2001
 	var InVBlank = false; // $2002 bit 7
-	var SpriteZeroHit = false; // $2002 bit 6
+	var SpriteZeroHitScanline = 0; // for $2002 bit 6
+	var SpriteZeroHitPixel = 0; // for $2002 bit 6
 	var SpriteOverflow = false; // $2002 bit 5
 	var SpriteAddress = 0; // $2003
 
@@ -59,7 +62,6 @@ NES.PPU = function(Options)
 	// Pixel buffer for sprites. Each byte represents a pixel on the screen;
 	// Bit 8 is BG flag (0 for normal, 1 for BG sprite), bit 7 is sprite 0 flag, low 4 bits are palette index.
 	var SpritePixels = new Uint8Array(NES.VisiblePixelsPerScanline * NES.VisibleScanlines);
-	var SpriteZeroX = 0, SpriteZeroY = 0; // The location on screen of sprite #0.
 
 	// A cache of attribute table, decompressed from NES format to a more easily used format.
 	// One byte per tile, 32 * 32 tiles per nametable, two nametables.
@@ -107,11 +109,14 @@ NES.PPU = function(Options)
 	function EndVBlank()
 	{
 		InVBlank = false;
-		SpriteZeroHit = false;
 		SpriteOverflow = false;
 		NMIInhibit = false;
 		PrepareSprites();
 		++FrameCounter;
+
+		var SpriteZeroHit = ComputeSpriteZeroHit() || {};
+		SpriteZeroHitScanline = ~~SpriteZeroHit.Scanline || NES.VisibleScanlines;
+		SpriteZeroHitPixel = ~~SpriteZeroHit.Pixel;
 
 		// Update the cache of "Mirroring".
 		Mirroring = GetMapper().Mirroring;
@@ -121,10 +126,37 @@ NES.PPU = function(Options)
 			VRAMAddress = TempVRAMAddress;
 	}
 
-	function ComputerSpriteZeroHit()
+	function ComputeSpriteZeroHit()
 	{
-		var HitScanline = 0;
-		var HitPixel = 0;
+		if (!(R2001 & Bitmasks.SHOW_BG) || !(R2001 & Bitmasks.SHOW_SPRITES))
+			return;
+
+		var SpriteZeroX = SpriteMemory[3];
+		var SpriteZeroY = SpriteMemory[0] + 1;
+
+		var StartX = SpriteZeroX;
+		if (!(R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE) && StartX < 8)
+			StartX = 8;
+
+		var StopX = SpriteZeroX + 8;
+		if (StopX >= 255)
+			StopX = 254;
+
+		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
+
+		for (var X = StartX; X < StopX; X++)
+		{
+			for (var Y = SpriteZeroY; Y < SpriteZeroY + SpriteHeight; Y++)
+			{
+				if (!(SpritePixels[256 * Y + X] & 0x40)) continue;
+				if (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && X < 8) continue;
+				if (GetBGPixel(Y, X) == 0) continue;
+
+				// If we've arrived here, then both the sprite 0 and background pixel
+				// are non-transparent and colliding.
+				return { "Scanline": Y, "Pixel": X };
+			}
+		}
 	}
 
 	function InitializeScanline()
@@ -204,24 +236,13 @@ NES.PPU = function(Options)
 
 		var SpritePixel = SpritePixels[256 * Scanline + Pixel];
 		// If nametable clipping is enabled and we're in the left 8 pixels, skip drawing. Otherwise, draw.
-		PaletteIndex = (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && Pixel < 8) ? 0 : DrawBGPixel();
+		PaletteIndex = (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && Pixel < 8) ? 0 : GetBGPixel(Scanline, Pixel);
 		var BGTransparent = (PaletteIndex == 0);
 
 		if ((SpritePixel & 0x0F) != 0 && (Pixel >= 8 || (R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE)) // If there is a sprite at this pixel...
 				&& ((SpritePixel & 0x80) == 0 || BGTransparent)) // and it's a foreground sprite or the BG is transparent,
 		{
 			PaletteIndex = 0x10 + (SpritePixel & 0xF); // then draw the sprite instead of the BG.
-		}
-
-		// If we are in the vicinity of sprite #0, check if we should set SpriteZeroHit.
-		// Scanline is zero-indexed, 0-239. SpriteZeroY can be between 1 and 256.
-		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
-		if ((R2001 & Bitmasks.SHOW_SOMETHING) == Bitmasks.SHOW_SOMETHING && !BGTransparent && !SpriteZeroHit
-			&& Scanline >= SpriteZeroY && Scanline < SpriteZeroY + SpriteHeight && Pixel >= SpriteZeroX && Pixel < SpriteZeroX + SpriteHeight
-			&& Pixel != 255 && (Pixel >= 8 || (R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE))) // Check sprite left-eight-pixels clipping
-		{
-			//postMessage({ "Type": "Log", "Data": "sprite zero hit: (" + Scanline + ", " + Pixel + ")" });
-			SpriteZeroHit = (SpritePixels[256 * Scanline + Pixel] & 0x40) != 0;
 		}
 
 		// These VRAM pointer updates assume that we are rendering the pixel and incrementing things accordingly.
@@ -263,27 +284,24 @@ NES.PPU = function(Options)
 		return PaletteMemory[PaletteIndex];
 	}
 
-	function DrawBGPixel()
+	function GetBGPixel(_Scanline, _Pixel)
 	{
-		// Locate the pixel in the name table which tells us what tile to draw with.
-		// Name table is 30 rows x 32 columns long, each entry representing an 8x8 tile. 30 * 32 = 0x3C0 bytes long.
-		// TileNumber is the index into the name table, like counting up tiles left to right then top to bottom.
-		// TileIndex is the index into the CHR memory.
-		var NameTableAddress = ((VRAMAddress & Mirroring) == 0 ? 0 : 0x0400) + (VRAMAddress & 0x03FF);
-		var TileIndex = PPUMemory[NameTableAddress];
+		var NameTableAddress = (R2000 & Bitmasks.NAMETABLE_ADDRESS) << 10;
+		if ((NameTableAddress & Mirroring) == Mirroring)
+			NameTableAddress += 0x0400;
 
-		// Get pattern table data for the tile.
-		// Pattern table has 256 tiles, each 128 bits = 16 bytes long, two bits per pixel in an 8x8 tile.
+		var TileAddress = NameTableAddress + ((_Scanline << 2) & 0x03E0) + ((_Pixel >> 3) & 0x001F);
+		var TileIndex = PPUMemory[TileAddress];
+		var TilePatternAddress = ((R2000 & Bitmasks.PATTERN_TABLE_ADDRESS) << 8) + 16 * TileIndex + (_Scanline & 7);
 
-		var PatternTableAddress = ((R2000 & 0x10) << 8) + 16 * TileIndex + FineY;
-		var Shift = 7 - FineX;
-		var LowColor = ((ReadCHR(PatternTableAddress) >> Shift) & 1) | (((ReadCHR(PatternTableAddress + 8) >> Shift) << 1) & 2);
+		var Shift = 7 - (_Pixel & 7);
+		var LowColor = ((ReadCHR(TilePatternAddress) >> Shift) & 1) | (((ReadCHR(TilePatternAddress + 8) >> Shift) << 1) & 2);
 
 		// Background pixel is transparent if LowColor == 0, and doesn't use the upper color bits.
 		if (LowColor == 0)
 			return 0;
 
-		return CachedAttributeTable[NameTableAddress] | LowColor;
+		return CachedAttributeTable[TileAddress] | LowColor;
 	}
 
 	Self.WriteRegister = function(Address, Value)
@@ -423,7 +441,12 @@ NES.PPU = function(Options)
 					}
 				}
 
-				var Value = (InVBlank ? 0x80 : 0) | (SpriteZeroHit ? 0x40 : 0) | (SpriteOverflow ? 0x20 : 0);
+				var Value = 0;
+				if (InVBlank) Value |= Bitmasks.IN_VBLANK;
+				if (SpriteOverflow) Value |= Bitmasks.SPRITE_OVERFLOW;
+				if (Scanline >= SpriteZeroHitScanline && Pixel >= SpriteZeroHitPixel)
+					Value |= Bitmasks.SPRITE_ZERO_HIT;
+
 				InVBlank = false;
 				ScrollingFlipFlop = false;
 				return Value;
@@ -491,8 +514,6 @@ NES.PPU = function(Options)
 		var LowColor, PaletteIndex;
 
 		SpritePixels = new Uint8Array(256 * 240);
-		SpriteZeroX = SpriteMemory[3];
-		SpriteZeroY = SpriteMemory[0] + 1;
 
 		// Lower index has higher priority, so iterate backwards.
 		for (var i = 63; i >= 0; --i)
