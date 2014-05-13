@@ -2,24 +2,27 @@ var NES = NES || {};
 
 var Bitmasks =
 {
-	// Bitmasks for use with $2000
+	// $2000
 	"NAMETABLE_ADDRESS": 0x03,
 	"VRAM_INCREMENT_32": 0x04,
 	"PATTERN_TABLE_ADDRESS": 0x10,
 	"TALL_SPRITES": 0x20,
 	"GENERATE_NMI": 0x80,
 
-	// Bitmasks for use with $2001
+	// $2001
 	"GRAYSCALE": 0x01,
 	"SHOW_BG_LEFT_EDGE": 0x02,
 	"SHOW_SPRITES_LEFT_EDGE": 0x04,
 	"SHOW_BG": 0x08,
 	"SHOW_SPRITES": 0x10,
 
-	// Bitmasks for use with $2002
+	// $2002
 	"SPRITE_OVERFLOW": 0x20,
 	"SPRITE_ZERO_HIT": 0x40,
-	"IN_VBLANK": 0x80
+	"IN_VBLANK": 0x80,
+
+	// Sprite mask
+	"SPRITE_ZERO": 0x40
 };
 
 Bitmasks.SHOW_SOMETHING = Bitmasks.SHOW_BG | Bitmasks.SHOW_SPRITES;
@@ -148,7 +151,7 @@ NES.PPU = function(Options)
 		{
 			for (var Y = SpriteZeroY; Y < SpriteZeroY + SpriteHeight; Y++)
 			{
-				if (!(SpritePixels[256 * Y + X] & 0x40)) continue;
+				if (!(SpritePixels[256 * Y + X] & Bitmasks.SPRITE_ZERO)) continue;
 				if (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && X < 8) continue;
 				if (GetBGPixel(Y, X) == 0) continue;
 
@@ -569,7 +572,7 @@ NES.PPU = function(Options)
 						// SpriteZeroPixelData stores a stencil of how sprite #0 appears on the screen, false for transparent pixel, true otherwise.
 						if (i == 0)
 						{
-							SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] |= 0x40;
+							SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] |= Bitmasks.SPRITE_ZERO;
 
 							// Double-check that sprite #0 should be doing what follows this block.
 							// Namely, if sprite #0 is a BG sprite and there's already a non-BG pixel in place, skip.
@@ -578,7 +581,7 @@ NES.PPU = function(Options)
 						}
 
 						PaletteIndex = LowColor | ((Attributes << 2) & 0x0C);
-						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0) | (i == 0 ? 0x40 : 0)) & 0xFF;
+						SpritePixels[256 * (ScreenY + ScreenOffsetY) + (ScreenX + ScreenOffsetX)] = (PaletteIndex | (Background ? 0x80 : 0) | (i == 0 ? Bitmasks.SPRITE_ZERO : 0)) & 0xFF;
 					}
 				}
 			}
