@@ -128,7 +128,7 @@ NES.PPU = function(Options)
 		var SpriteZeroHit = ComputeSpriteZeroHit() || {};
 		SpriteZeroHitScanline = ~~SpriteZeroHit.Scanline || NES.VisibleScanlines;
 		SpriteZeroHitPixel = ~~SpriteZeroHit.Pixel;
-		//postMessage({ "Type": "Log", "Data": JSON.stringify({ "Scanline": SpriteZeroHitScanline, "Pixel": SpriteZeroHitPixel }) });
+		postMessage({ "Type": "Log", "Data": JSON.stringify({ "Scanline": SpriteZeroHitScanline, "Pixel": SpriteZeroHitPixel }) });
 
 		// Update the cache of "Mirroring".
 		Mirroring = GetMapper().Mirroring;
@@ -310,6 +310,7 @@ NES.PPU = function(Options)
 	//
 	// TODO: SMB1: walk a bit into the first level and then stop moving.
 	// the background flickers, from frame to frame, jumping left and right.
+	// note: this correlates with the sprite zero hit check failing
 	function GetBGPixel(_Scanline, _Pixel)
 	{
 		// If the scrolling is such that we're not on the primary nametable, then
