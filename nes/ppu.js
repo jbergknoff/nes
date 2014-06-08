@@ -138,6 +138,11 @@ NES.PPU = function(Options)
 			VRAMAddress = TempVRAMAddress;
 	}
 
+	// TODO: this should be refactored to run once per scanline (as necessary)
+	// and only check for hits on that scanline. This is because mid-screen scrolling
+	// may modify state such that GetBGPixel will return bogus results at the outset
+	// of rendering the screen. I am guessing, but this sort of issue might show up
+	// in the Zelda 2 title screen.
 	function ComputeSpriteZeroHit()
 	{
 		if (!(R2001 & Bitmasks.SHOW_BG) || !(R2001 & Bitmasks.SHOW_SPRITES))
@@ -306,9 +311,8 @@ NES.PPU = function(Options)
 	{
 		// If the scrolling is such that we're not on the primary nametable, then
 		// refer to the second name table (at 0x0400).
-		var NameTableAddress = (R2000 & Bitmasks.NAMETABLE_ADDRESS) << 10;
-		if (NameTableAddress & Mirroring)
-			NameTableAddress += 0x0400;
+		var RawNameTableAddress = (R2000 & Bitmasks.NAMETABLE_ADDRESS) << 10;
+		var NameTableAddress = (RawNameTableAddress & Mirroring) == 0 ? 0x0000 : 0x0400;
 
 		// The nametable encodes 30 rows x 32 columns of tiles.
 		// Each entry is 1 byte. 30 * 32 = 0x3C0 bytes long.
