@@ -307,6 +307,9 @@ NES.PPU = function(Options)
 	// The idea here is to be able to get a BG pixel based only on the state
 	// available at the start of drawing the screen. Nametable scrolling mid-screen
 	// will probably cause this to give bogus results...?
+	//
+	// TODO: SMB1: walk a bit into the first level and then stop moving.
+	// the background flickers, from frame to frame, jumping left and right.
 	function GetBGPixel(_Scanline, _Pixel)
 	{
 		// If the scrolling is such that we're not on the primary nametable, then
