@@ -64,6 +64,8 @@ NES.PPU = function(Options)
 	// FineX, Y are updated while the screen renders.
 	var FineX = 0, FineY = 0;
 
+	var BaseCoarseX = 0, BaseCoarseY = 0;
+
 	var Scanline = NES.ScanlineVBlankBegin; // Same as Nintendulator, per http://wiki.nesdev.com/w/index.php/PPU_power_up_state.
 	var Pixel = 0;
 	var FrameCounter = 0;
@@ -126,6 +128,7 @@ NES.PPU = function(Options)
 		var SpriteZeroHit = ComputeSpriteZeroHit() || {};
 		SpriteZeroHitScanline = ~~SpriteZeroHit.Scanline || NES.VisibleScanlines;
 		SpriteZeroHitPixel = ~~SpriteZeroHit.Pixel;
+		//postMessage({ "Type": "Log", "Data": JSON.stringify({ "Scanline": SpriteZeroHitScanline, "Pixel": SpriteZeroHitPixel }) });
 
 		// Update the cache of "Mirroring".
 		Mirroring = GetMapper().Mirroring;
@@ -296,26 +299,28 @@ NES.PPU = function(Options)
 		return PaletteMemory[PaletteIndex];
 	}
 
+	// The idea here is to be able to get a BG pixel based only on the state
+	// available at the start of drawing the screen. Nametable scrolling mid-screen
+	// will probably cause this to give bogus results...?
 	function GetBGPixel(_Scanline, _Pixel)
 	{
 		// If the scrolling is such that we're not on the primary nametable, then
 		// refer to the second name table (at 0x0400).
-		var NameTableAddress = (VRAMAddress & Mirroring) == 0 ? 0x0000 : 0x4000;
+		var NameTableAddress = (R2000 & Bitmasks.NAMETABLE_ADDRESS) << 10;
+		if (NameTableAddress & Mirroring)
+			NameTableAddress += 0x0400;
 
 		// The nametable encodes 30 rows x 32 columns of tiles.
 		// Each entry is 1 byte. 30 * 32 = 0x3C0 bytes long.
 		// Tiles are counted left to right, top to bottom.
 		// The tile we are interested in is, roughly, at 32 * (coarse tile y) + (coarse tile x).
-		// The coarse tile coordinates are affected by scrolling, which data is encoded in
-		// VRAMAddress: in fact, the name table address is simply VRAMAddress & 0x03FF.
-		// TODO: do this without referring to VRAMAddress? should be possible.
-		var TileAddress = NameTableAddress + (VRAMAddress & 0x03FF);
+		var TileY = (BaseCoarseY + ((_Scanline + BaseFineY) >> 3)) & 0x1F;
+		var TileX = (BaseCoarseX + ((_Pixel + BaseFineX) >> 3)) & 0x1F;
+		var TileAddress = NameTableAddress + (TileY << 5) + TileX;
 		var TileIndex = PPUMemory[TileAddress];
-		// TODO: do this with Scanline instead of FineY.
-		var TilePatternAddress = ((R2000 & Bitmasks.PATTERN_TABLE_ADDRESS) << 8) + 16 * TileIndex + (FineY & 7);
+		var TilePatternAddress = ((R2000 & Bitmasks.PATTERN_TABLE_ADDRESS) << 8) + 16 * TileIndex + ((BaseFineY + _Scanline) & 7);
 
-		// TODO: do this with Pixel instead of FineX.
-		var Shift = 7 - FineX;
+		var Shift = 7 - ((BaseFineX + _Pixel) & 7);
 		var LowColor = ((ReadCHR(TilePatternAddress) >> Shift) & 1) | (((ReadCHR(TilePatternAddress + 8) >> Shift) << 1) & 2);
 
 		// Background pixel is transparent if LowColor == 0, and doesn't use the upper color bits.
@@ -344,6 +349,7 @@ NES.PPU = function(Options)
 					RaiseInterrupt(NES.InterruptType.CancelNMI);
 				}
 
+				// Update the nametable in the PPU latch.
 				TempVRAMAddress = (TempVRAMAddress & 0xF3FF) | ((Value & 3) << 10);
 				break;
 
@@ -364,7 +370,8 @@ NES.PPU = function(Options)
 			case 0x2005:
 				if (!ScrollingFlipFlop)
 				{
-					TempVRAMAddress = (TempVRAMAddress & 0x7FE0) | (Value >> 3);
+					BaseCoarseX = Value >> 3;
+					TempVRAMAddress = (TempVRAMAddress & 0x7FE0) | BaseCoarseX;
 
 					// Again, important: FineX should not be updated if the screen is currently drawing.
 					// Therefore, buffer the value and assign it when necessary (i.e. start of scanline)
@@ -374,7 +381,8 @@ NES.PPU = function(Options)
 				else
 				{
 					TempVRAMAddress &= 0x0C1F;
-					TempVRAMAddress |= ((Value & 0xF8) << 2);
+					BaseCoarseY = (Value & 0xF8) >> 3;
+					TempVRAMAddress |= (BaseCoarseY << 5);
 					BaseFineY = Value & 7;
 					TempVRAMAddress |= (BaseFineY << 12);
 				}
