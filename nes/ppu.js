@@ -57,7 +57,13 @@ NES.PPU = function(Options)
 	var TempVRAMAddress = 0; // Loopy "latch".
 	var VRAMAddress = 0; // Pointer to location in VRAM where reads/writes will occur.
 	var VRAMBuffer = 0; // For delayed reads of VRAM memory
-	var TempFineX = 0, TempFineY = 0, FineX = 0, FineY = 0;
+
+	// BaseFineX, Y are the values used when starting to draw the scanline/screen (respectively).
+	// They are modified by writes to the scroll registers $2005, $2006.
+	var BaseFineX = 0, BaseFineY = 0;
+	// FineX, Y are updated while the screen renders.
+	var FineX = 0, FineY = 0;
+
 	var Scanline = NES.ScanlineVBlankBegin; // Same as Nintendulator, per http://wiki.nesdev.com/w/index.php/PPU_power_up_state.
 	var Pixel = 0;
 	var FrameCounter = 0;
@@ -171,10 +177,10 @@ NES.PPU = function(Options)
 
 		VRAMAddress &= 0xFBE0;
 		VRAMAddress |= (TempVRAMAddress & 0x041F);
-		FineX = TempFineX;
+		FineX = BaseFineX;
 		if (Scanline == 0)
 		{
-			FineY = TempFineY;
+			FineY = BaseFineY;
 			ExpandAttributeTable();
 		}
 	}
@@ -256,11 +262,13 @@ NES.PPU = function(Options)
 			FineX &= 7;
 			if (FineX == 0)
 			{
+				// If we've overflowed horizontally, switch the nametable selector in VRAMAddress.
 				if ((VRAMAddress & 0x1F) == 0x1F)
 				{
 					VRAMAddress &= 0xFFE0;
 					VRAMAddress ^= 0x0400;
 				}
+				// Otherwise, just bump the coarse X value in VRAMAddress.
 				else
 					++VRAMAddress;
 			}
@@ -272,6 +280,7 @@ NES.PPU = function(Options)
 				FineY &= 7;
 				if (FineY == 0)
 				{
+					// If we've overflowed vertically, switch the nametabe selector in VRAMAddress.
 					if ((VRAMAddress & 0x03A0) == 0x03A0)
 					{
 						VRAMAddress &= 0xFC1F;
@@ -289,15 +298,24 @@ NES.PPU = function(Options)
 
 	function GetBGPixel(_Scanline, _Pixel)
 	{
-		var NameTableAddress = (R2000 & Bitmasks.NAMETABLE_ADDRESS) << 10;
-		if ((NameTableAddress & Mirroring) == Mirroring)
-			NameTableAddress += 0x0400;
+		// If the scrolling is such that we're not on the primary nametable, then
+		// refer to the second name table (at 0x0400).
+		var NameTableAddress = (VRAMAddress & Mirroring) == 0 ? 0x0000 : 0x4000;
 
-		var TileAddress = NameTableAddress + ((_Scanline << 2) & 0x03E0) + ((_Pixel >> 3) & 0x001F);
+		// The nametable encodes 30 rows x 32 columns of tiles.
+		// Each entry is 1 byte. 30 * 32 = 0x3C0 bytes long.
+		// Tiles are counted left to right, top to bottom.
+		// The tile we are interested in is, roughly, at 32 * (coarse tile y) + (coarse tile x).
+		// The coarse tile coordinates are affected by scrolling, which data is encoded in
+		// VRAMAddress: in fact, the name table address is simply VRAMAddress & 0x03FF.
+		// TODO: do this without referring to VRAMAddress? should be possible.
+		var TileAddress = NameTableAddress + (VRAMAddress & 0x03FF);
 		var TileIndex = PPUMemory[TileAddress];
-		var TilePatternAddress = ((R2000 & Bitmasks.PATTERN_TABLE_ADDRESS) << 8) + 16 * TileIndex + (_Scanline & 7);
+		// TODO: do this with Scanline instead of FineY.
+		var TilePatternAddress = ((R2000 & Bitmasks.PATTERN_TABLE_ADDRESS) << 8) + 16 * TileIndex + (FineY & 7);
 
-		var Shift = 7 - (_Pixel & 7);
+		// TODO: do this with Pixel instead of FineX.
+		var Shift = 7 - FineX;
 		var LowColor = ((ReadCHR(TilePatternAddress) >> Shift) & 1) | (((ReadCHR(TilePatternAddress + 8) >> Shift) << 1) & 2);
 
 		// Background pixel is transparent if LowColor == 0, and doesn't use the upper color bits.
@@ -351,14 +369,14 @@ NES.PPU = function(Options)
 					// Again, important: FineX should not be updated if the screen is currently drawing.
 					// Therefore, buffer the value and assign it when necessary (i.e. start of scanline)
 					// Ref: NinTech.txt line 567.
-					TempFineX = Value & 7;
+					BaseFineX = Value & 7;
 				}
 				else
 				{
 					TempVRAMAddress &= 0x0C1F;
 					TempVRAMAddress |= ((Value & 0xF8) << 2);
-					TempFineY = Value & 7;
-					TempVRAMAddress |= (TempFineY << 12);
+					BaseFineY = Value & 7;
+					TempVRAMAddress |= (BaseFineY << 12);
 				}
 
 				ScrollingFlipFlop = !ScrollingFlipFlop;
