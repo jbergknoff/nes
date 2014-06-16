@@ -40,7 +40,7 @@ NES.PPU = function(Options)
 	var R2000 = 0; // $2000
 	var R2001 = 0; // $2001
 	var InVBlank = false; // $2002 bit 7
-	var SpriteZeroHitScanline = 0; // for $2002 bit 6
+	var SpriteZeroHitScanline = -1; // for $2002 bit 6
 	var SpriteZeroHitPixel = 0; // for $2002 bit 6
 	var SpriteOverflow = false; // $2002 bit 5
 	var SpriteAddress = 0; // $2003
@@ -125,17 +125,15 @@ NES.PPU = function(Options)
 		PrepareSprites();
 		++FrameCounter;
 
-		var SpriteZeroHit = ComputeSpriteZeroHit() || {};
-		SpriteZeroHitScanline = ~~SpriteZeroHit.Scanline || NES.VisibleScanlines;
-		SpriteZeroHitPixel = ~~SpriteZeroHit.Pixel;
-		postMessage({ "Type": "Log", "Data": JSON.stringify({ "Scanline": SpriteZeroHitScanline, "Pixel": SpriteZeroHitPixel }) });
-
 		// Update the cache of "Mirroring".
 		Mirroring = GetMapper().Mirroring;
 
 		// This is important. The VRAM pointer is not set to the latch unless drawing is enabled.
 		if (R2001 & Bitmasks.SHOW_SOMETHING)
 			VRAMAddress = TempVRAMAddress;
+
+		SpriteZeroHitScanline = -1;
+		SpriteZeroHitPixel = 0;
 	}
 
 	// TODO: this should be refactored to run once per scanline (as necessary)
@@ -143,13 +141,21 @@ NES.PPU = function(Options)
 	// may modify state such that GetBGPixel will return bogus results at the outset
 	// of rendering the screen. I am guessing, but this sort of issue might show up
 	// in the Zelda 2 title screen.
-	function ComputeSpriteZeroHit()
+	function ComputeSpriteZeroHit(_Scanline)
 	{
+		// If sprite zero hit has already been computed on this frame, skip.
+		if (SpriteZeroHitScanline >= 0)
+			return;
+
 		if (!(R2001 & Bitmasks.SHOW_BG) || !(R2001 & Bitmasks.SHOW_SPRITES))
 			return;
 
 		var SpriteZeroX = SpriteMemory[3];
 		var SpriteZeroY = SpriteMemory[0] + 1;
+		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
+
+		if (_Scanline < SpriteZeroY || _Scanline >= (SpriteZeroY + SpriteHeight))
+			return;
 
 		var StartX = SpriteZeroX;
 		if (!(R2001 & Bitmasks.SHOW_SPRITES_LEFT_EDGE) && StartX < 8)
@@ -159,20 +165,16 @@ NES.PPU = function(Options)
 		if (StopX >= 255)
 			StopX = 254;
 
-		var SpriteHeight = (R2000 & Bitmasks.TALL_SPRITES) ? 16 : 8;
-
 		for (var X = StartX; X < StopX; X++)
 		{
-			for (var Y = SpriteZeroY; Y < SpriteZeroY + SpriteHeight; Y++)
-			{
-				if (!(SpritePixels[256 * Y + X] & Bitmasks.SPRITE_ZERO)) continue;
-				if (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && X < 8) continue;
-				if (GetBGPixel(Y, X) == 0) continue;
+			if (!(SpritePixels[256 * _Scanline + X] & Bitmasks.SPRITE_ZERO)) continue;
+			if (!(R2001 & Bitmasks.SHOW_BG_LEFT_EDGE) && X < 8) continue;
+			if (GetBGPixel(_Scanline, X) == 0) continue;
 
-				// If we've arrived here, then both the sprite 0 and background pixel
-				// are non-transparent and colliding.
-				return { "Scanline": Y, "Pixel": X };
-			}
+			// If we've arrived here, then both the sprite 0 and background pixel
+			// are non-transparent and colliding.
+			postMessage({ "Type": "Log", "Data": JSON.stringify({ "Scanline": _Scanline, "Pixel": X }) });
+			return { "Scanline": _Scanline, "Pixel": X };
 		}
 	}
 
@@ -191,6 +193,10 @@ NES.PPU = function(Options)
 			FineY = BaseFineY;
 			ExpandAttributeTable();
 		}
+
+		var SpriteZeroHit = ComputeSpriteZeroHit(Scanline) || {};
+		SpriteZeroHitScanline = ~~SpriteZeroHit.Scanline || -1;
+		SpriteZeroHitPixel = ~~SpriteZeroHit.Pixel;
 	}
 
 	// Ticks the PPU, drawing a pixel if appropriate.
@@ -481,7 +487,9 @@ NES.PPU = function(Options)
 				var Value = 0;
 				if (InVBlank) Value |= Bitmasks.IN_VBLANK;
 				if (SpriteOverflow) Value |= Bitmasks.SPRITE_OVERFLOW;
-				if (Scanline >= SpriteZeroHitScanline && Pixel >= SpriteZeroHitPixel)
+
+				var PastSpriteZeroHit = Scanline >= SpriteZeroHitScanline && Pixel >= SpriteZeroHitPixel;
+				if (SpriteZeroHitScanline >= 0 && PastSpriteZeroHit)
 					Value |= Bitmasks.SPRITE_ZERO_HIT;
 
 				InVBlank = false;
